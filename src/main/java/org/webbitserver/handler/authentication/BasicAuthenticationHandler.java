@@ -1,10 +1,14 @@
 package org.webbitserver.handler.authentication;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.base64.Base64;
 import org.webbitserver.HttpControl;
 import org.webbitserver.HttpHandler;
 import org.webbitserver.HttpRequest;
 import org.webbitserver.HttpResponse;
-import org.webbitserver.helpers.Base64;
+
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 /**
  * Adds HTTP Basic authentication to a page. Users should provide an implementation of UsernamePasswordAuthenticator
@@ -35,17 +39,21 @@ public class BasicAuthenticationHandler implements HttpHandler {
     }
 
     @Override
-    public void handleHttpRequest(final HttpRequest request, final HttpResponse response, final HttpControl control) throws Exception {
+    public void handleHttpRequest(final HttpRequest request, final HttpResponse response, final HttpControl control)
+            throws Exception
+    {
         String authHeader = request.header("Authorization");
         if (authHeader == null) {
             needAuthentication(response);
         } else {
             if (authHeader.startsWith(BASIC_PREFIX)) {
-                String decoded = new String(Base64.decode(authHeader.substring(BASIC_PREFIX.length())));
-                final String[] pair = decoded.split(":", 2);
+                ByteBuf byteBuf =
+                        Base64.decode(Unpooled.copiedBuffer(authHeader.substring(BASIC_PREFIX.length()), US_ASCII));
+                String decoded = byteBuf.toString(US_ASCII);
+                String[] pair = decoded.split(":", 2);
                 if (pair.length == 2) {
                     final String username = pair[0];
-                    final String password = pair[1];
+                    String password = pair[1];
                     PasswordAuthenticator.ResultCallback callback = new PasswordAuthenticator.ResultCallback() {
                         @Override
                         public void success() {

@@ -1,12 +1,12 @@
 package samples.chatroom;
 
-import java.util.HashSet;
-import java.util.Set;
-
+import com.google.gson.Gson;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.webbitserver.BaseWebSocketHandler;
 import org.webbitserver.WebSocketConnection;
 
-import com.google.gson.Gson;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Chatroom extends BaseWebSocketHandler {
 
@@ -30,7 +30,7 @@ public class Chatroom extends BaseWebSocketHandler {
         String message;
     }
 
-    private Set<WebSocketConnection> connections = new HashSet<WebSocketConnection>();
+    private final Set<WebSocketConnection> connections = new HashSet<>();
 
     @Override
     public void onOpen(WebSocketConnection connection) throws Exception {
@@ -38,8 +38,8 @@ public class Chatroom extends BaseWebSocketHandler {
     }
 
     @Override
-    public void onMessage(WebSocketConnection connection, String msg) throws Exception {
-        Incoming incoming = json.fromJson(msg, Incoming.class);
+    public void onMessage(WebSocketConnection connection, TextWebSocketFrame msg) throws Exception {
+        Incoming incoming = json.fromJson(msg.text(), Incoming.class);
         switch (incoming.action) {
             case LOGIN:
                 login(connection, incoming.loginUsername);

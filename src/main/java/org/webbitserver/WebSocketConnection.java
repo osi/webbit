@@ -1,5 +1,10 @@
 package org.webbitserver;
 
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+
 public interface WebSocketConnection extends HttpConnection {
 
     /**
@@ -44,6 +49,14 @@ public interface WebSocketConnection extends HttpConnection {
      */
     WebSocketConnection pong(byte[] message);
 
+    WebSocketConnection send(TextWebSocketFrame frame);
+
+    WebSocketConnection send(BinaryWebSocketFrame frame);
+
+    WebSocketConnection ping(PingWebSocketFrame frame);
+
+    WebSocketConnection pong(PongWebSocketFrame frame);
+
     /**
      * @return the WebSocket protocol version
      */
@@ -51,8 +64,15 @@ public interface WebSocketConnection extends HttpConnection {
 
     // Override methods to provide more specific return type.
 
+    /**
+     * Close the web socket with status 1000 and no reason
+     *
+     * @return
+     */
     @Override
     WebSocketConnection close();
+
+    WebSocketConnection close(int status, String reason);
 
     @Override
     WebSocketConnection data(String key, Object value);

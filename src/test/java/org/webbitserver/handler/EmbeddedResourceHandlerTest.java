@@ -12,25 +12,23 @@ import org.webbitserver.stub.StubHttpControl;
 import org.webbitserver.stub.StubHttpRequest;
 import org.webbitserver.stub.StubHttpResponse;
 
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.core.IsNot.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.junit.matchers.JUnitMatchers.containsString;
 import static org.webbitserver.WebServers.createWebServer;
 import static org.webbitserver.testutil.HttpClient.contents;
 import static org.webbitserver.testutil.HttpClient.httpGet;
 
 public class EmbeddedResourceHandlerTest {
-    private WebServer webServer = createWebServer(59504);
+    private final WebServer webServer = createWebServer(59504);
     private AbstractResourceHandler handler;
     private Executor immediateExecutor;
 
@@ -46,8 +44,8 @@ public class EmbeddedResourceHandlerTest {
     }
 
     @After
-    public void stop() throws InterruptedException, ExecutionException {
-        webServer.stop().get();
+    public void stop() throws Exception {
+        webServer.stop();
     }
 
     @Test
@@ -71,18 +69,18 @@ public class EmbeddedResourceHandlerTest {
 
     @Test
     public void listsSubDirectory() throws Exception {
-      handler.enableDirectoryListing(true).welcomeFile("doesnotexist");
+        handler.enableDirectoryListing(true).welcomeFile("doesnotexist");
 
-      StubHttpResponse response = handle(request("/"));
-      assertEquals(200, response.status());
-      // &#x2F; is a /
-      assertThat(response.contentsString(), containsString("href=\"subdir&#x2F;\""));
-      assertThat(response.contentsString(), not(containsString("subfile.txt")));
+        StubHttpResponse response = handle(request("/"));
+        assertEquals(200, response.status());
+        // &#x2F; is a /
+        assertThat(response.contentsString(), containsString("href=\"subdir&#x2F;\""));
+        assertThat(response.contentsString(), not(containsString("subfile.txt")));
 
-      response = handle(request("/subdir/"));
-      assertEquals(200, response.status());
-      assertThat(response.contentsString(), containsString("subfile.txt"));
-      assertThat(response.contentsString(), not(containsString("index.html")));
+        response = handle(request("/subdir/"));
+        assertEquals(200, response.status());
+        assertThat(response.contentsString(), containsString("subfile.txt"));
+        assertThat(response.contentsString(), not(containsString("index.html")));
     }
 
     @Test
@@ -91,40 +89,42 @@ public class EmbeddedResourceHandlerTest {
     }
 
     @Test
-    public void shouldWorkInRealServer() throws IOException, InterruptedException, ExecutionException {
-        webServer.add(handler).start().get();
+    public void shouldWorkInRealServer() throws Exception {
+        webServer.add(handler).start();
         assertEquals("Hello world", contents(httpGet(webServer, "/index.html")));
         assertEquals("Hello world", contents(httpGet(webServer, "/index.html?x=y")));
     }
 
     @Test
-    public void canUseTemplateEngine() throws IOException, InterruptedException, ExecutionException {
+    public void canUseTemplateEngine() throws Exception {
         handler = new EmbeddedResourceHandler("web", immediateExecutor, getClass(), new TemplateEngine() {
             @Override
             public byte[] process(byte[] template, String templatePath, Object templateContext) {
                 String templateSource = new String(template, Charset.forName("UTF-8"));
                 String context = templateContext.toString();
                 try {
-                    return (templateSource+context).getBytes("UTF-8");
+                    return (templateSource + context).getBytes("UTF-8");
                 } catch (UnsupportedEncodingException e) {
-                    throw new RuntimeException();
+                    throw new RuntimeException(e);
                 }
             }
         });
         webServer.add(new HttpHandler() {
             @Override
-            public void handleHttpRequest(HttpRequest request, HttpResponse response, HttpControl control) throws Exception {
+            public void handleHttpRequest(HttpRequest request, HttpResponse response, HttpControl control)
+                    throws Exception
+            {
                 request.data(TemplateEngine.TEMPLATE_CONTEXT, "THE CONTEXT");
                 control.nextHandler();
             }
         });
-        webServer.add(handler).start().get();
+        webServer.add(handler).start();
         assertEquals("Hello worldTHE CONTEXT", contents(httpGet(webServer, "/index.html")));
     }
 
     @Test
-    public void shouldWorkWithBiggerFilesUsingEmbedded() throws IOException, InterruptedException, ExecutionException {
-        webServer.add(handler).start().get();
+    public void shouldWorkWithBiggerFilesUsingEmbedded() throws Exception {
+        webServer.add(handler).start();
         String jquery = contents(httpGet(webServer, "/jquery-1.5.2.js"));
         if (!jquery.trim().endsWith("})(window);")) {
             fail("Ended with:[" + jquery.substring(jquery.length() - 200, jquery.length()) + "]");
@@ -132,9 +132,9 @@ public class EmbeddedResourceHandlerTest {
     }
 
     @Test
-    public void shouldWorkWithBiggerFilesUsingFileHandler() throws IOException, InterruptedException, ExecutionException {
+    public void shouldWorkWithBiggerFilesUsingFileHandler() throws Exception {
         handler = new StaticFileHandler("src/test/resources/web");
-        webServer.add(handler).start().get();
+        webServer.add(handler).start();
 
         String jquery = contents(httpGet(webServer, "/jquery-1.5.2.js"));
         if (!jquery.trim().endsWith("})(window);")) {
@@ -143,8 +143,8 @@ public class EmbeddedResourceHandlerTest {
     }
 
     @Test
-    public void shouldFindWelcomeFileInRealServer() throws IOException, InterruptedException, ExecutionException {
-        webServer.add(handler).start().get();
+    public void shouldFindWelcomeFileInRealServer() throws Exception {
+        webServer.add(handler).start();
         assertEquals("Hello world", contents(httpGet(webServer, "/")));
     }
 

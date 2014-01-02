@@ -1,19 +1,23 @@
 package org.webbitserver.netty;
 
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
-import org.jboss.netty.handler.codec.http.websocket.WebSocketFrame;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import org.webbitserver.WebSocketHandler;
 
 import java.util.concurrent.Executor;
 
-public class WebSocketConnectionHandler extends SimpleChannelUpstreamHandler {
+public class WebSocketConnectionHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
     private final Executor executor;
     private final NettyWebSocketConnection webSocketConnection;
     private final WebSocketHandler webSocketHandler;
+    private final WebSocketServerHandshaker handshaker;
     private final ConnectionHelper connectionHelper;
 
     public WebSocketConnectionHandler(
@@ -21,11 +25,14 @@ public class WebSocketConnectionHandler extends SimpleChannelUpstreamHandler {
             Thread.UncaughtExceptionHandler exceptionHandler,
             Thread.UncaughtExceptionHandler ioExceptionHandler,
             final NettyWebSocketConnection webSocketConnection,
-            final WebSocketHandler webSocketHandler
-    ) {
+            final WebSocketHandler webSocketHandler,
+            WebSocketServerHandshaker handshaker)
+    {
+        super(false); // no auto-release
         this.executor = executor;
         this.webSocketConnection = webSocketConnection;
         this.webSocketHandler = webSocketHandler;
+        this.handshaker = handshaker;
         this.connectionHelper = new ConnectionHelper(executor, exceptionHandler, ioExceptionHandler) {
             @Override
             protected void fireOnClose() throws Throwable {
@@ -35,36 +42,42 @@ public class WebSocketConnectionHandler extends SimpleChannelUpstreamHandler {
     }
 
     @Override
-    public void channelUnbound(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
-        connectionHelper.fireOnClose(e);
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        connectionHelper.fireOnClose(ctx.channel());
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) throws Exception {
-        connectionHelper.fireConnectionException(e);
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        connectionHelper.fireConnectionException(ctx.channel(), cause);
     }
 
     @Override
-    public void messageReceived(ChannelHandlerContext ctx, final MessageEvent e) throws Exception {
-        final Thread.UncaughtExceptionHandler exceptionHandlerWithContext = connectionHelper.webbitExceptionWrappingExceptionHandler(e.getChannel());
+    protected void messageReceived(ChannelHandlerContext ctx, final WebSocketFrame frame) throws Exception {
+        Thread.UncaughtExceptionHandler exceptionHandlerWithContext =
+                connectionHelper.webbitExceptionWrappingExceptionHandler(ctx.channel());
 
-        Object message = e.getMessage();
-        if (message instanceof DecodingHybiFrame) {
-            DecodingHybiFrame frame = (DecodingHybiFrame) message;
-            frame.dispatchMessage(webSocketHandler, webSocketConnection, executor, exceptionHandlerWithContext);
-        } else {
-            // Hixie 75/76
-            final WebSocketFrame frame = (WebSocketFrame) message;
-            executor.execute(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        webSocketHandler.onMessage(webSocketConnection, frame.getTextData());
-                    } catch (Throwable t) {
-                        exceptionHandlerWithContext.uncaughtException(Thread.currentThread(), t);
-                    }
-                }
-            });
+        if (frame instanceof CloseWebSocketFrame) {
+            handshaker.close(ctx.channel(), (CloseWebSocketFrame) frame.retain());
+            return;
         }
+
+        executor.execute(new CatchingRunnable(exceptionHandlerWithContext) {
+            @Override
+            protected void go() throws Throwable {
+                try {
+                    if (frame instanceof PingWebSocketFrame) {
+                        webSocketHandler.onPing(webSocketConnection, (PingWebSocketFrame) frame);
+                    } else if (frame instanceof PongWebSocketFrame) {
+                        webSocketHandler.onPong(webSocketConnection, (PongWebSocketFrame) frame);
+                    } else if (frame instanceof TextWebSocketFrame) {
+                        webSocketHandler.onMessage(webSocketConnection, (TextWebSocketFrame) frame);
+                    } else if (frame instanceof BinaryWebSocketFrame) {
+                        webSocketHandler.onMessage(webSocketConnection, (BinaryWebSocketFrame) frame);
+                    }
+                } finally {
+                    frame.release();
+                }
+            }
+        });
     }
 }

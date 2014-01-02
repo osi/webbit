@@ -12,6 +12,11 @@ public interface HttpControl extends Executor {
 
     WebSocketConnection upgradeToWebSocketConnection(WebSocketHandler handler);
 
+    /**
+     * Returns the WebSockedConnection under control, but only after upgrading. Otherwise returns null.
+     *
+     * @return
+     */
     WebSocketConnection webSocketConnection();
 
     EventSourceConnection upgradeToEventSourceConnection(EventSourceHandler handler);

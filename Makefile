@@ -6,7 +6,7 @@ SHELL := /bin/bash
 
 LIBRARY=webbit
 CLASSPATH=$(shell echo $(wildcard lib/*.jar) | sed -e 's/ /:/g')
-JARJARRULES='rule org.jboss.netty.** org.webbitserver.dependencies.org.jboss.netty.@1'
+JARJARRULES='rule io.netty.** org.webbitserver.dependencies.io.netty.@1'
 
 # Default target: Compile, run tests and build tarball
 all: jar test

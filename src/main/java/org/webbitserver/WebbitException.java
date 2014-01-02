@@ -1,7 +1,6 @@
 package org.webbitserver;
 
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ExceptionEvent;
+import io.netty.channel.Channel;
 
 /**
  * Marker for any exceptions in the Webbit stack.
@@ -24,10 +23,6 @@ public class WebbitException extends RuntimeException {
 
     public WebbitException(Throwable cause) {
         super(cause);
-    }
-
-    public static WebbitException fromExceptionEvent(ExceptionEvent e) {
-        return fromException(e.getCause(), e.getChannel());
     }
 
     public static WebbitException fromException(Throwable t, Channel channel) {

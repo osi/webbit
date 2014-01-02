@@ -1,16 +1,15 @@
 package samples.authentication;
 
-import static org.webbitserver.WebServers.createWebServer;
-
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-
 import org.webbitserver.HttpRequest;
 import org.webbitserver.WebServer;
 import org.webbitserver.handler.StaticFileHandler;
 import org.webbitserver.handler.authentication.BasicAuthenticationHandler;
 import org.webbitserver.handler.authentication.PasswordAuthenticator;
+
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
+import static org.webbitserver.WebServers.createWebServer;
 
 /**
  * This example how to verify username/passwords in the background without blocking the
@@ -20,14 +19,13 @@ public class AsyncPasswordsExample {
 
     static Executor backgroundAuthenticatorThread = Executors.newSingleThreadExecutor();
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) throws Exception {
         WebServer webServer = createWebServer(45454)
                 .add(new BasicAuthenticationHandler(new SlowPasswordAuthenticator()))
                 .add("/whoami", new WhoAmIHttpHandler())
                 .add("/whoami-ws", new WhoAmIWebSocketHandler())
-                .add(new StaticFileHandler("src/test/java/samples/authentication/content"))
-                .start()
-                .get();
+                .add(new StaticFileHandler("src/test/java/samples/authentication/content"));
+        webServer.start();
 
         System.out.println("Running on " + webServer.getUri());
     }
@@ -37,7 +35,12 @@ public class AsyncPasswordsExample {
      */
     private static class SlowPasswordAuthenticator implements PasswordAuthenticator {
         @Override
-        public void authenticate(HttpRequest request, final String username, final String password, final ResultCallback callback, final Executor handlerExecutor) {
+        public void authenticate(HttpRequest request,
+                                 final String username,
+                                 final String password,
+                                 final ResultCallback callback,
+                                 final Executor handlerExecutor)
+        {
             // Submit some slow work to a background thread, so we don't block the main Webbit thread.
             backgroundAuthenticatorThread.execute(new BackgroundWorker(username, password, callback, handlerExecutor));
         }
@@ -53,7 +56,11 @@ public class AsyncPasswordsExample {
         private final PasswordAuthenticator.ResultCallback callback;
         private final Executor handlerExecutor;
 
-        public BackgroundWorker(String username, String password, PasswordAuthenticator.ResultCallback callback, Executor handlerExecutor) {
+        public BackgroundWorker(String username,
+                                String password,
+                                PasswordAuthenticator.ResultCallback callback,
+                                Executor handlerExecutor)
+        {
             this.username = username;
             this.password = password;
             this.callback = callback;

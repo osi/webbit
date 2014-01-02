@@ -1,15 +1,13 @@
 package org.webbitserver.netty;
 
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import io.netty.channel.ChannelHandlerAdapter;
+import io.netty.channel.ChannelHandlerContext;
 import org.webbitserver.EventSourceHandler;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.concurrent.Executor;
 
-public class EventSourceConnectionHandler extends SimpleChannelUpstreamHandler {
+public class EventSourceConnectionHandler extends ChannelHandlerAdapter {
     private final ConnectionHelper connectionHelper;
 
     public EventSourceConnectionHandler(
@@ -18,7 +16,8 @@ public class EventSourceConnectionHandler extends SimpleChannelUpstreamHandler {
             UncaughtExceptionHandler ioExceptionHandler,
             final NettyEventSourceConnection eventSourceConnection,
             final EventSourceHandler eventSourceHandler
-    ) {
+    )
+    {
         this.connectionHelper = new ConnectionHelper(executor, exceptionHandler, ioExceptionHandler) {
             @Override
             protected void fireOnClose() throws Exception {
@@ -28,12 +27,13 @@ public class EventSourceConnectionHandler extends SimpleChannelUpstreamHandler {
     }
 
     @Override
-    public void channelUnbound(ChannelHandlerContext ctx, ChannelStateEvent e) {
-        connectionHelper.fireOnClose(e);
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        connectionHelper.fireOnClose(ctx.channel());
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
-        connectionHelper.fireConnectionException(e);
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        connectionHelper.fireConnectionException(ctx.channel(), cause);
     }
+
 }

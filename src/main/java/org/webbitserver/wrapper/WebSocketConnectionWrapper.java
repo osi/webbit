@@ -1,5 +1,9 @@
 package org.webbitserver.wrapper;
 
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.webbitserver.HttpRequest;
 import org.webbitserver.WebSocketConnection;
 
@@ -39,6 +43,30 @@ public class WebSocketConnectionWrapper implements WebSocketConnection {
     }
 
     @Override
+    public WebSocketConnectionWrapper send(TextWebSocketFrame frame) {
+        connection.send(frame);
+        return this;
+    }
+
+    @Override
+    public WebSocketConnectionWrapper send(BinaryWebSocketFrame frame) {
+        connection.send(frame);
+        return this;
+    }
+
+    @Override
+    public WebSocketConnectionWrapper ping(PingWebSocketFrame frame) {
+        connection.ping(frame);
+        return this;
+    }
+
+    @Override
+    public WebSocketConnectionWrapper pong(PongWebSocketFrame frame) {
+        connection.pong(frame);
+        return this;
+    }
+
+    @Override
     public WebSocketConnectionWrapper send(String message) {
         connection.send(message);
         return this;
@@ -71,6 +99,12 @@ public class WebSocketConnectionWrapper implements WebSocketConnection {
     @Override
     public WebSocketConnectionWrapper close() {
         connection.close();
+        return this;
+    }
+
+    @Override
+    public WebSocketConnectionWrapper close(int status, String reason) {
+        connection.close(status, reason);
         return this;
     }
 

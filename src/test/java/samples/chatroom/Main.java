@@ -13,8 +13,8 @@ public class Main {
         WebServer webServer = createWebServer(9876)
                 .add(new LoggingHandler(new SimpleLogSink(Chatroom.USERNAME_KEY)))
                 .add("/chatsocket", new Chatroom())
-                .add(new StaticFileHandler("./src/test/java/samples/chatroom/content"))
-                .start().get();
+                .add(new StaticFileHandler("./src/test/java/samples/chatroom/content"));
+        webServer.start();
 
         System.out.println("Chat room running on: " + webServer.getUri());
     }

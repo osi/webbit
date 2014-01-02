@@ -1,8 +1,6 @@
 package org.webbitserver.netty;
 
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.ExceptionEvent;
+import io.netty.channel.Channel;
 import org.webbitserver.WebbitException;
 
 import java.nio.channels.ClosedChannelException;
@@ -13,15 +11,19 @@ abstract class ConnectionHelper {
     protected final Thread.UncaughtExceptionHandler exceptionHandler;
     private final Thread.UncaughtExceptionHandler ioExceptionHandler;
 
-    public ConnectionHelper(Executor executor, Thread.UncaughtExceptionHandler exceptionHandler, Thread.UncaughtExceptionHandler ioExceptionHandler) {
+    public ConnectionHelper(Executor executor,
+                            Thread.UncaughtExceptionHandler exceptionHandler,
+                            Thread.UncaughtExceptionHandler ioExceptionHandler)
+    {
         this.ioExceptionHandler = ioExceptionHandler;
         this.executor = executor;
         this.exceptionHandler = exceptionHandler;
     }
 
-    public void fireOnClose(final ChannelStateEvent e) {
+    public void fireOnClose(Channel channel) {
         final Thread thread = Thread.currentThread();
-        final Thread.UncaughtExceptionHandler uncaughtExceptionHandler = webbitExceptionWrappingExceptionHandler(e.getChannel());
+        final Thread.UncaughtExceptionHandler uncaughtExceptionHandler =
+                webbitExceptionWrappingExceptionHandler(channel);
         executor.execute(new Runnable() {
             @Override
             public void run() {
@@ -34,15 +36,15 @@ abstract class ConnectionHelper {
         });
     }
 
-    public void fireConnectionException(final ExceptionEvent e) {
-        if (e.getCause() instanceof ClosedChannelException) {
-            e.getChannel().close();
+    public void fireConnectionException(final Channel channel, final Throwable cause) {
+        if (cause.getCause() instanceof ClosedChannelException) {
+            channel.close();
         } else {
             final Thread thread = Thread.currentThread();
             executor.execute(new Runnable() {
                 @Override
                 public void run() {
-                    ioExceptionHandler.uncaughtException(thread, WebbitException.fromExceptionEvent(e));
+                    ioExceptionHandler.uncaughtException(thread, WebbitException.fromException(cause, channel));
                 }
             });
         }

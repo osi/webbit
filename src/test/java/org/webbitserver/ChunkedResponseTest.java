@@ -3,8 +3,9 @@ package org.webbitserver;
 import org.junit.After;
 import org.junit.Test;
 
+import java.io.InputStream;
 import java.net.URLConnection;
-import java.util.concurrent.ExecutionException;
+import java.util.Scanner;
 
 import static org.junit.Assert.assertTrue;
 import static org.webbitserver.WebServers.createWebServer;
@@ -14,8 +15,8 @@ public class ChunkedResponseTest {
     private WebServer webServer = createWebServer(12345);
 
     @After
-    public void die() throws InterruptedException, ExecutionException {
-        webServer.stop().get();
+    public void die() throws Exception {
+        webServer.stop();
     }
 
     @Test
@@ -24,12 +25,15 @@ public class ChunkedResponseTest {
             @Override
             public void handleHttpRequest(HttpRequest req, final HttpResponse res, HttpControl control) {
                 control.execute(new Runnable() {
+                    @Override
                     public void run() {
                         res.chunked();
                         nap();
-                        res.write("chunk1");
+                        // TODO
+//                        res.write("chunk1");
                         nap();
-                        res.write("chunk2");
+                        // TODO
+//                        res.write("chunk2");
                         nap();
                         res.end();
                     }
@@ -42,20 +46,20 @@ public class ChunkedResponseTest {
                     }
                 });
             }
-        }).start().get();
+        }).start();
 
 
         URLConnection conn = httpGet(webServer, "/chunked");
 
-        assertTrue("should contain chunks", stringify(conn.getInputStream()).equals("chunk1chunk2"));
+        assertTrue("should contain chunks", "chunk1chunk2".equals(stringify(conn.getInputStream())));
         assertTrue("should contain Transfer-Encoding header", conn.getHeaderFields().get("Transfer-Encoding") != null);
-        assertTrue("should have chunked value in Transfer encoding header", conn.getHeaderFields().get("Transfer-Encoding").get(0).equals("chunked"));
+        assertTrue("should have chunked value in Transfer encoding header",
+                   "chunked".equals(conn.getHeaderFields().get("Transfer-Encoding").get(0)));
     }
 
-    private static String stringify(java.io.InputStream is) {
-        java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
+    private static String stringify(InputStream is) {
+        Scanner s = new Scanner(is).useDelimiter("\\A");
         return s.hasNext() ? s.next() : "";
     }
-
 
 }

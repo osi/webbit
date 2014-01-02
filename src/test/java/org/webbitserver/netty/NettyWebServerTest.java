@@ -15,7 +15,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -26,28 +25,31 @@ public class NettyWebServerTest {
     private NettyWebServer server;
 
     @After
-    public void stopServer() throws ExecutionException, InterruptedException {
+    public void stopServer() throws Exception {
         if (server != null) {
-            server.stop().get();
+            server.stop();
         }
     }
 
     @Test
     public void stopsServerCleanlyAlsoWhenClientsAreConnected() throws Exception {
         final CountDownLatch stopper = new CountDownLatch(1);
-        server = new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080).start().get();
+        server = new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080);
+        server.start();
         server.add(new HttpHandler() {
             @Override
-            public void handleHttpRequest(HttpRequest request, HttpResponse response, HttpControl control) throws Exception {
-                server.stop().get();
+            public void handleHttpRequest(HttpRequest request, HttpResponse response, HttpControl control)
+                    throws Exception
+            {
+                server.stop();
                 stopper.countDown();
             }
         });
         Socket client = new Socket(InetAddress.getLocalHost(), 9080);
         OutputStream http = client.getOutputStream();
         http.write(("" +
-                "GET /index.html HTTP/1.1\r\n" +
-                "Host: www.example.com\r\n\r\n").getBytes("UTF-8"));
+                    "GET /index.html HTTP/1.1\r\n" +
+                    "Host: www.example.com\r\n\r\n").getBytes("UTF-8"));
         http.flush();
 
         assertTrue("Server should have stopped by now", stopper.await(1000, TimeUnit.MILLISECONDS));
@@ -56,19 +58,19 @@ public class NettyWebServerTest {
     @Test
     public void restartServerDoesNotThrowException() throws Exception {
         server = new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080);
-        server.start().get();
-        server.stop().get();
-        server.start().get();
-        server.stop().get();
+        server.start();
+        server.stop();
+        server.start();
+        server.stop();
     }
 
     @Test
     public void startServerAndTestIsRunning() throws Exception {
         server = new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080);
-        server.start().get();
+        server.start();
         assertTrue("Server should be running", server.isRunning());
 
-        server.stop().get();
+        server.stop();
         assertTrue("Server should not be running", !server.isRunning());
     }
 
@@ -79,13 +81,20 @@ public class NettyWebServerTest {
         }
     }
 
-    private void startAndStop() throws InterruptedException, ExecutionException {
+    private void startAndStop() throws Exception {
         List<String> beforeStart = getCurrentThreadNames();
-        new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080).start().get().stop().get();
+        NettyWebServer server = new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080);
+        server.start();
+        server.stop();
         List<String> afterStop = getCurrentThreadNames();
         if (afterStop.size() > beforeStart.size()) {
-            System.err.println(String.format("Expected fewer threads after stopping. Before start: %d, After stop: %d", beforeStart.size(), afterStop.size()));
-            System.err.println("Not failing the test because that hoses the release process. Just printing so we don't forget to fix this");
+            System.err
+                    .println(String.format("Expected fewer threads after stopping. Before start: %d, After stop: %d",
+                                           beforeStart.size(),
+                                           afterStop.size()));
+            System.err
+                    .println(
+                            "Not failing the test because that hoses the release process. Just printing so we don't forget to fix this");
         }
     }
 

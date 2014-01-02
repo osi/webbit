@@ -1,71 +1,92 @@
 package org.webbitserver.netty;
 
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.handler.codec.http.websocket.DefaultWebSocketFrame;
-import org.jboss.netty.util.CharsetUtil;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.webbitserver.WebSocketConnection;
 
 import java.util.concurrent.Executor;
 
 public class NettyWebSocketConnection extends AbstractHttpConnection implements WebSocketConnection {
 
-    private final byte[] outboundMaskingKey;
-    private String version;
-    private boolean hybi;
+    private final String version;
 
-    public NettyWebSocketConnection(Executor executor, NettyHttpRequest nettyHttpRequest, ChannelHandlerContext ctx, byte[] outboundMaskingKey) {
+    public NettyWebSocketConnection(Executor executor,
+                                    NettyHttpRequest nettyHttpRequest,
+                                    ChannelHandlerContext ctx,
+                                    String version)
+    {
         super(ctx, nettyHttpRequest, executor);
-        this.outboundMaskingKey = outboundMaskingKey;
+        this.version = version;
+    }
+
+    @Override
+    public NettyWebSocketConnection send(TextWebSocketFrame frame) {
+        writeMessage(frame);
+        return this;
+    }
+
+    @Override
+    public NettyWebSocketConnection send(BinaryWebSocketFrame frame) {
+        writeMessage(frame);
+        return this;
+    }
+
+    @Override
+    public NettyWebSocketConnection ping(PingWebSocketFrame frame) {
+        writeMessage(frame);
+        return this;
+    }
+
+    @Override
+    public NettyWebSocketConnection pong(PongWebSocketFrame frame) {
+        writeMessage(frame);
+        return this;
     }
 
     @Override
     public NettyWebSocketConnection send(String message) {
-        if (hybi) {
-            writeMessage(new EncodingHybiFrame(Opcodes.OPCODE_TEXT, true, 0, outboundMaskingKey, ChannelBuffers.copiedBuffer(message, CharsetUtil.UTF_8)));
-        } else {
-            writeMessage(new DefaultWebSocketFrame(message));
-        }
+        writeMessage(new TextWebSocketFrame(message));
         return this;
     }
 
     @Override
     public NettyWebSocketConnection send(byte[] message) {
-        return send(message, 0, message.length);
+        writeMessage(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(message)));
+        return this;
     }
 
     @Override
     public NettyWebSocketConnection send(byte[] message, int offset, int length) {
-        writeMessage(new EncodingHybiFrame(Opcodes.OPCODE_BINARY, true, 0, outboundMaskingKey, ChannelBuffers.copiedBuffer(message, offset, length)));
+        writeMessage(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(message, offset, length)));
         return this;
     }
 
     @Override
     public NettyWebSocketConnection ping(byte[] message) {
-        writeMessage(new EncodingHybiFrame(Opcodes.OPCODE_PING, true, 0, outboundMaskingKey, ChannelBuffers.copiedBuffer(message)));
+        writeMessage(new PingWebSocketFrame(Unpooled.wrappedBuffer(message)));
         return this;
     }
 
     @Override
     public NettyWebSocketConnection pong(byte[] message) {
-        writeMessage(new EncodingHybiFrame(Opcodes.OPCODE_PONG, true, 0, outboundMaskingKey, ChannelBuffers.copiedBuffer(message)));
+        writeMessage(new PongWebSocketFrame(Unpooled.wrappedBuffer(message)));
         return this;
     }
 
     @Override
     public NettyWebSocketConnection close() {
-        if (hybi) {
-            writeMessage(new EncodingHybiFrame(Opcodes.OPCODE_CLOSE, true, 0, outboundMaskingKey, ChannelBuffers.buffer(0))).addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture channelFuture) throws Exception {
-                    closeChannel();
-                }
-            });
-        } else {
-            closeChannel();
-        }
+        return close(1000, "");
+    }
+
+    @Override
+    public NettyWebSocketConnection close(int status, String reason) {
+        ctx.channel().writeAndFlush(new CloseWebSocketFrame(status, reason)).addListener(ChannelFutureListener.CLOSE);
         return this;
     }
 
@@ -79,15 +100,5 @@ public class NettyWebSocketConnection extends AbstractHttpConnection implements 
     public String version() {
         return version;
     }
-
-    void setVersion(String version) {
-        this.version = version;
-    }
-
-    public void setHybiWebSocketVersion(int webSocketVersion) {
-        setVersion("Sec-WebSocket-Version-" + webSocketVersion);
-        hybi = true;
-    }
-
 
 }

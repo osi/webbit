@@ -1,54 +1,53 @@
 package org.webbitserver.netty;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.handler.codec.frame.TooLongFrameException;
-import org.jboss.netty.handler.codec.http.HttpHeaders;
-import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
-import org.jboss.netty.handler.codec.http.HttpHeaders.Names;
-import org.jboss.netty.handler.codec.http.HttpHeaders.Values;
-import org.jboss.netty.util.CharsetUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.TooLongFrameException;
+import io.netty.handler.codec.http.Cookie;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpResponse;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.ServerCookieEncoder;
+import io.netty.util.ReferenceCounted;
 import org.webbitserver.WebbitException;
-import org.webbitserver.helpers.DateHelper;
-import org.jboss.netty.handler.codec.http.CookieEncoder;
-import org.jboss.netty.handler.codec.http.DefaultCookie;
-import org.jboss.netty.handler.codec.http.Cookie;
-import org.jboss.netty.handler.codec.http.DefaultHttpChunk;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.net.HttpCookie;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.util.Date;
-
-import static org.jboss.netty.buffer.ChannelBuffers.copiedBuffer;
-import static org.jboss.netty.buffer.ChannelBuffers.wrappedBuffer;
 
 public class NettyHttpResponse implements org.webbitserver.HttpResponse {
 
     private static final Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
     private final ChannelHandlerContext ctx;
+    private final ReferenceCounted request;
     private final HttpResponse response;
     private final boolean isKeepAlive;
     private final Thread.UncaughtExceptionHandler exceptionHandler;
-    private final ChannelBuffer responseBuffer;
+    private final CompositeByteBuf responseBuffer;
     private Charset charset;
 
     public NettyHttpResponse(ChannelHandlerContext ctx,
+                             ReferenceCounted request,
                              HttpResponse response,
                              boolean isKeepAlive,
-                             Thread.UncaughtExceptionHandler exceptionHandler) {
+                             Thread.UncaughtExceptionHandler exceptionHandler)
+    {
         this.ctx = ctx;
+        this.request = request;
         this.response = response;
         this.isKeepAlive = isKeepAlive;
         this.exceptionHandler = exceptionHandler;
         this.charset = DEFAULT_CHARSET;
-        responseBuffer = ChannelBuffers.dynamicBuffer();
+        responseBuffer = ctx.alloc().compositeBuffer();
     }
 
     @Override
@@ -70,89 +69,72 @@ public class NettyHttpResponse implements org.webbitserver.HttpResponse {
 
     @Override
     public NettyHttpResponse chunked() {
-        response.setHeader(Names.TRANSFER_ENCODING, Values.CHUNKED);
-        response.setChunked(true);
-        ctx.getChannel().write(response);
-        return this;
+        throw new UnsupportedOperationException();
+        // TODO chunked
+//        response.setHeader(Names.TRANSFER_ENCODING, Values.CHUNKED);
+//        response.setChunked(true);
+//        ctx.getChannel().write(response);
+//        return this;
     }
 
     @Override
     public int status() {
-        return response.getStatus().getCode();
+        return response.getStatus().code();
     }
 
     @Override
-    public NettyHttpResponse header(String name, String value) {
+    public NettyHttpResponse header(CharSequence name, CharSequence value) {
         if (value == null) {
-            response.removeHeader(name);
+            response.headers().remove(name);
         } else {
-            response.addHeader(name, value);
+            response.headers().add(name, value);
         }
         return this;
     }
 
     @Override
     public NettyHttpResponse header(String name, long value) {
-        response.addHeader(name, value);
+        response.headers().add(name, Long.valueOf(value));
         return this;
     }
 
     @Override
-    public NettyHttpResponse header(String name, Date value) {
-        response.addHeader(name, DateHelper.rfc1123Format(value));
+    public NettyHttpResponse header(CharSequence name, Date value) {
+        HttpHeaders.addDateHeader(response, name, value);
         return this;
     }
 
     @Override
-    public boolean containsHeader(String name) {
-        return response.containsHeader(name);
+    public boolean containsHeader(CharSequence name) {
+        return response.headers().contains(name);
     }
 
     @Override
-    public NettyHttpResponse cookie(HttpCookie httpCookie) {
-        Cookie nettyCookie = new DefaultCookie(httpCookie.getName(),httpCookie.getValue());
-        nettyCookie.setDomain(httpCookie.getDomain());
-        nettyCookie.setPath(httpCookie.getPath());
-        nettyCookie.setSecure(httpCookie.getSecure());
-        nettyCookie.setMaxAge((int)httpCookie.getMaxAge());
-        nettyCookie.setVersion(httpCookie.getVersion());
-        nettyCookie.setDiscard(httpCookie.getDiscard());
-        nettyCookie.setHttpOnly(true);
-        CookieEncoder encoder = new CookieEncoder(true);
-        encoder.addCookie(nettyCookie);
-        return header(HttpHeaders.Names.SET_COOKIE, encoder.encode());
+    public NettyHttpResponse cookie(Cookie cookie) {
+        return header(HttpHeaders.Names.SET_COOKIE, ServerCookieEncoder.encode(cookie));
     }
 
     @Override
     public NettyHttpResponse content(String content) {
-        return content(copiedBuffer(content, charset()));
+        return content(ByteBufUtil.encodeString(ctx.alloc(), CharBuffer.wrap(content), charset()));
     }
 
     @Override
     public NettyHttpResponse content(byte[] content) {
-        return content(copiedBuffer(content));
+        return content(Unpooled.wrappedBuffer(content));
     }
 
     @Override
     public NettyHttpResponse content(ByteBuffer buffer) {
-        return content(wrappedBuffer(buffer));
+        return content(Unpooled.wrappedBuffer(buffer));
     }
 
-    private NettyHttpResponse content(ChannelBuffer content) {
-        if (response.isChunked()) {
-            throw new UnsupportedOperationException();
-        }
-        responseBuffer.writeBytes(content);
-        return this;
-    }
-
-    @Override
-    public NettyHttpResponse write(String content) {
-        if (response.isChunked()) {
-            ctx.getChannel().write(new DefaultHttpChunk(wrappedBuffer(content.getBytes(CharsetUtil.UTF_8))));  
-        } else {
-            write(copiedBuffer(content, CharsetUtil.UTF_8));
-        }    
+    private NettyHttpResponse content(ByteBuf content) {
+// TODO chunked-and-this
+//        if (response.isChunked()) {
+//            throw new UnsupportedOperationException();
+//        }
+        responseBuffer.addComponent(content);
         return this;
     }
 
@@ -169,12 +151,12 @@ public class NettyHttpResponse implements org.webbitserver.HttpResponse {
         flushResponse();
 
         exceptionHandler.uncaughtException(Thread.currentThread(),
-                WebbitException.fromException(error, ctx.getChannel()));
+                                           WebbitException.fromException(error, ctx.channel()));
 
         return this;
     }
 
-    private String getStackTrace(Throwable error) {
+    public static String getStackTrace(Throwable error) {
         StringWriter buffer = new StringWriter();
         PrintWriter writer = new PrintWriter(buffer);
         error.printStackTrace(writer);
@@ -189,23 +171,32 @@ public class NettyHttpResponse implements org.webbitserver.HttpResponse {
     }
 
     private void flushResponse() {
+        if (!request.release()) {
+            // TODO potential leak!
+        }
+
         try {
-            // TODO: Shouldn't have to do this, but without it we sometimes seem to get two Content-Length headers in the response.
-            header("Content-Length", (String) null);
-            header("Content-Length", responseBuffer.readableBytes());
-            ChannelFuture  future = response.isChunked() ? ctx.getChannel().write(new DefaultHttpChunk(ChannelBuffers.EMPTY_BUFFER)) : write(responseBuffer);
+            // TODO support explicit content length in case of chunked?
+            HttpHeaders.setContentLength(response, responseBuffer.readableBytes());
+
+            ctx.write(response); // start of the HTTP message
+
+
+//            if (response.isChunked()) {
+//                ctx.getChannel()
+//                        .write(new DefaultHttpChunk(ChannelBuffers.EMPTY_BUFFER));
+//            } else {
+            ctx.write(responseBuffer);
+//            }
+
+            ChannelFuture lastContentFuture = ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
+
             if (!isKeepAlive) {
-                future.addListener(ChannelFutureListener.CLOSE);
+                lastContentFuture.addListener(ChannelFutureListener.CLOSE);
             }
         } catch (Exception e) {
             exceptionHandler.uncaughtException(Thread.currentThread(),
-                    WebbitException.fromException(e, ctx.getChannel()));
+                                               WebbitException.fromException(e, ctx.channel()));
         }
     }
-
-    private ChannelFuture write(ChannelBuffer responseBuffer) {
-        response.setContent(responseBuffer);
-        return ctx.getChannel().write(response);
-    }
-
 }

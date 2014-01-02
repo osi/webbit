@@ -8,6 +8,7 @@ public class DefaultDirectoryListingFormatter implements DirectoryListingFormatt
     private static final String DIRECTORY_LISTING_FORMAT_STRING =
             "<html><body><ol style='list-style-type: none; padding-left: 0px; margin-left: 0px;'>%s</ol></body></html>";
 
+    @Override
     public byte[] formatFileListAsHtml(Iterable<FileEntry> files) throws IOException {
         StringBuilder builder = new StringBuilder();
         for (FileEntry file : files) {

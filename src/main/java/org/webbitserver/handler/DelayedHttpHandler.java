@@ -16,19 +16,21 @@ import java.util.concurrent.Executor;
 public class DelayedHttpHandler implements HttpHandler {
 
     private final Executor executor;
-    private Timer timer;
+    private final Timer timer;
     private final long delayInMillis;
     private final HttpHandler handler;
 
     public DelayedHttpHandler(Executor executor, long delayInMillis, HttpHandler handler) {
         this.delayInMillis = delayInMillis;
         this.handler = handler;
-        timer = new Timer();
+        this.timer = new Timer();
         this.executor = executor;
     }
 
     @Override
-    public void handleHttpRequest(final HttpRequest request, final HttpResponse response, final HttpControl control) throws Exception {
+    public void handleHttpRequest(final HttpRequest request, final HttpResponse response, final HttpControl control)
+            throws Exception
+    {
         timer.schedule(new TimerTask() {
             @Override
             public void run() {

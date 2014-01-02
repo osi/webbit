@@ -1,20 +1,20 @@
 package org.webbitserver.stub;
 
+import io.netty.handler.codec.http.Cookie;
+import io.netty.handler.codec.http.DefaultCookie;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpHeaders.Names;
+import io.netty.handler.codec.http.HttpHeaders.Values;
 import org.webbitserver.HttpResponse;
-import org.webbitserver.helpers.DateHelper;
-import org.jboss.netty.handler.codec.http.HttpHeaders.Names;
-import org.jboss.netty.handler.codec.http.HttpHeaders.Values;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.HttpCookie;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Implementation of HttpResponse that is easy to construct manually, and inspect results.
@@ -24,11 +24,11 @@ public class StubHttpResponse implements HttpResponse {
 
     private Charset charset = Charset.forName("UTF-8");
     private int status = 200;
-    private Map<String, String> headers = new HashMap<String, String>();
+    private final HttpHeaders headers = new DefaultHttpHeaders();
     private Throwable error;
     private boolean ended;
-    private ByteArrayOutputStream contents = new ByteArrayOutputStream();
-    private List<HttpCookie> cookies = new ArrayList<HttpCookie>();
+    private final ByteArrayOutputStream contents = new ByteArrayOutputStream();
+    private final List<Cookie> cookies = new ArrayList<>();
 
 
     @Override
@@ -60,33 +60,35 @@ public class StubHttpResponse implements HttpResponse {
     }
 
     @Override
-    public StubHttpResponse header(String name, String value) {
+    public StubHttpResponse header(CharSequence name, CharSequence value) {
         if (value == null) {
             headers.remove(name);
         } else {
-            headers.put(name, value);
+            headers.set(name, value);
         }
         return this;
     }
 
     @Override
     public StubHttpResponse header(String name, long value) {
-        return header(name, String.valueOf(value));
+        headers.set(name, Long.valueOf(value));
+        return this;
     }
 
     @Override
-    public StubHttpResponse header(String name, Date value) {
-        return header(name, DateHelper.rfc1123Format(value));
+    public StubHttpResponse header(CharSequence name, Date value) {
+        headers.set(name, value);
+        return this;
     }
 
     @Override
-    public StubHttpResponse cookie(HttpCookie httpCookie) {
-        cookies.add(httpCookie);
+    public StubHttpResponse cookie(Cookie cookie) {
+        cookies.add(cookie);
         return this;
     }
 
     public StubHttpResponse cookie(String name, String value) {
-        return cookie(new HttpCookie(name, value));
+        return cookie(new DefaultCookie(name, value));
     }
 
     public String header(String name) {
@@ -94,18 +96,13 @@ public class StubHttpResponse implements HttpResponse {
     }
 
     @Override
-    public boolean containsHeader(String name) {
-        return headers.containsKey(name);
+    public boolean containsHeader(CharSequence name) {
+        return headers.contains(name);
     }
 
     @Override
     public StubHttpResponse content(String content) {
         return content(content.getBytes(charset));
-    }
-
-    @Override
-    public StubHttpResponse write(String content) {
-        return content(content);
     }
 
     @Override
@@ -160,19 +157,19 @@ public class StubHttpResponse implements HttpResponse {
         return ended;
     }
 
-    public List<HttpCookie> cookies() {
+    public List<Cookie> cookies() {
         return cookies;
     }
 
     @Override
     public String toString() {
         return "StubHttpResponse{" +
-                "charset=" + charset +
-                ", status=" + status +
-                ", headers=" + headers +
-                ", error=" + error +
-                ", ended=" + ended +
-                ", contents=" + contentsString() +
-                '}';
+               "charset=" + charset +
+               ", status=" + status +
+               ", headers=" + headers +
+               ", error=" + error +
+               ", ended=" + ended +
+               ", contents=" + contentsString() +
+               '}';
     }
 }

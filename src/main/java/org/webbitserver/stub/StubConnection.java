@@ -1,6 +1,11 @@
 package org.webbitserver.stub;
 
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.webbitserver.EventSourceConnection;
+import org.webbitserver.EventSourceMessage;
 import org.webbitserver.HttpRequest;
 import org.webbitserver.WebSocketConnection;
 
@@ -14,10 +19,10 @@ import java.util.concurrent.Executor;
  */
 public class StubConnection extends StubDataHolder implements EventSourceConnection, WebSocketConnection {
 
-    private final List<String> sentMessages = new LinkedList<String>();
-    private final List<byte[]> sentBinaryMessages = new LinkedList<byte[]>();
-    private final List<byte[]> sentPings = new LinkedList<byte[]>();
-    private final List<byte[]> sentPongs = new LinkedList<byte[]>();
+    private final List<String> sentMessages = new LinkedList<>();
+    private final List<byte[]> sentBinaryMessages = new LinkedList<>();
+    private final List<byte[]> sentPings = new LinkedList<>();
+    private final List<byte[]> sentPongs = new LinkedList<>();
     private boolean closed = false;
     private HttpRequest httpRequest;
     private String version = null;
@@ -36,7 +41,7 @@ public class StubConnection extends StubDataHolder implements EventSourceConnect
     }
 
     @Override
-    public StubConnection send(org.webbitserver.EventSourceMessage message) {
+    public StubConnection send(EventSourceMessage message) {
         return send(message.build());
     }
 
@@ -100,6 +105,31 @@ public class StubConnection extends StubDataHolder implements EventSourceConnect
 
     public List<byte[]> sentPongs() {
         return sentPongs;
+    }
+
+    @Override
+    public WebSocketConnection send(TextWebSocketFrame frame) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public WebSocketConnection send(BinaryWebSocketFrame frame) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public WebSocketConnection ping(PingWebSocketFrame frame) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public WebSocketConnection pong(PongWebSocketFrame frame) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public WebSocketConnection close(int status, String reason) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -43,4 +43,6 @@ class LoggingWebSocketConnection extends WebSocketConnectionWrapper {
         logSink.webSocketOutboundPong(this, message);
         return super.pong(message);
     }
+
+    // TODO log the rest of the new methods
 }

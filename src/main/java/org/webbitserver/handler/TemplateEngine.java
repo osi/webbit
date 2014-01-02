@@ -25,7 +25,6 @@ public interface TemplateEngine {
      * It's the programmer's responsibility to make sure the data value is set before the template is rendered,
      * i.e. before the {@link StaticFileHandler} or {@link EmbeddedResourceHandler} handler instance handles a request.
      *
-     * @param length          number of bytes in the template
      * @param template        the template source
      * @param templatePath    the path the template is read from. Allows implementations to cache compiled templates.
      * @param templateContext object to merge into the template

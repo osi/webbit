@@ -1,9 +1,8 @@
 package org.webbitserver.netty;
 
-import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
 import org.webbitserver.HttpConnection;
 
 import java.util.Map;
@@ -13,7 +12,7 @@ import java.util.concurrent.Executor;
 public abstract class AbstractHttpConnection implements HttpConnection {
     private final Executor executor;
     private final NettyHttpRequest nettyHttpRequest;
-    private final ChannelHandlerContext ctx;
+    protected final ChannelHandlerContext ctx;
 
     public AbstractHttpConnection(ChannelHandlerContext ctx, NettyHttpRequest nettyHttpRequest, Executor executor) {
         this.ctx = ctx;
@@ -22,13 +21,13 @@ public abstract class AbstractHttpConnection implements HttpConnection {
     }
 
     protected ChannelFuture writeMessage(Object message) {
-        final ChannelFuture write = ctx.getChannel().write(message);
+        ChannelFuture write = ctx.channel().write(message);
         write.addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         return write;
     }
 
     protected void closeChannel() {
-        ctx.getChannel().write(ChannelBuffers.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
+        ctx.channel().write(ctx.alloc().buffer(0, 0)).addListener(ChannelFutureListener.CLOSE);
     }
 
     protected void putData(String key, Object value) {

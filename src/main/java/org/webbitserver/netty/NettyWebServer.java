@@ -1,16 +1,19 @@
 package org.webbitserver.netty;
 
-import org.jboss.netty.bootstrap.ServerBootstrap;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
-import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
-import org.jboss.netty.handler.codec.http.HttpContentCompressor;
-import org.jboss.netty.handler.codec.http.HttpContentDecompressor;
-import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
-import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
-import org.jboss.netty.handler.ssl.SslHandler;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpRequestDecoder;
+import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.stream.ChunkedWriteHandler;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import org.webbitserver.EventSourceHandler;
 import org.webbitserver.HttpHandler;
 import org.webbitserver.WebServer;
@@ -36,40 +39,31 @@ import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static org.jboss.netty.channel.Channels.pipeline;
-
 public class NettyWebServer implements WebServer {
-    private static final long DEFAULT_STALE_CONNECTION_TIMEOUT = 5000;
-
     private final SocketAddress socketAddress;
     private final URI publicUri;
-    private final List<HttpHandler> handlers = new ArrayList<HttpHandler>();
-    private final List<ExecutorService> executorServices = new ArrayList<ExecutorService>();
+    private final List<HttpHandler> handlers = new ArrayList<>();
+    private final List<ExecutorService> executorServices = new ArrayList<>();
     private final Executor executor;
 
     private ServerBootstrap bootstrap;
     private Channel channel;
     private SSLContext sslContext;
 
-    protected long nextId = 1;
     private Thread.UncaughtExceptionHandler exceptionHandler;
     private Thread.UncaughtExceptionHandler ioExceptionHandler;
-    private ConnectionTrackingHandler connectionTrackingHandler;
-    private StaleConnectionTrackingHandler staleConnectionTrackingHandler;
-    private long staleConnectionTimeout = DEFAULT_STALE_CONNECTION_TIMEOUT;
     private int maxInitialLineLength = 4096;
     private int maxHeaderSize = 8192;
     private int maxChunkSize = 8192;
     private int maxContentLength = 65536;
+    private EventLoopGroup bossGroup;
+    private EventLoopGroup workerGroup;
+    private int maxWebSocketFrameSize = 8192;
 
     public NettyWebServer(int port) {
         this(Executors.newSingleThreadScheduledExecutor(new NamingThreadFactory("WEBBIT-HANDLER-THREAD")), port);
@@ -81,11 +75,11 @@ public class NettyWebServer implements WebServer {
         executorServices.add(executorService);
     }
 
-    public NettyWebServer(final Executor executor, int port) {
+    public NettyWebServer(Executor executor, int port) {
         this(executor, new InetSocketAddress(port), localUri(port));
     }
 
-    public NettyWebServer(final Executor executor, SocketAddress socketAddress, URI publicUri) {
+    public NettyWebServer(Executor executor, SocketAddress socketAddress, URI publicUri) {
         this.executor = executor;
         this.socketAddress = socketAddress;
         this.publicUri = publicUri;
@@ -102,13 +96,13 @@ public class NettyWebServer implements WebServer {
     }
 
     protected void setupDefaultHandlers() {
-        add(new ServerHeaderHandler("Webbit"));
+        add(new ServerHeaderHandler("Webbit2"));
         add(new DateHeaderHandler());
     }
 
     @Override
     public NettyWebServer setupSsl(InputStream keyStore, String pass) throws WebbitException {
-        return this.setupSsl(keyStore, pass, pass);
+        return setupSsl(keyStore, pass, pass);
     }
 
     @Override
@@ -125,7 +119,7 @@ public class NettyWebServer implements WebServer {
     @Override
     public int getPort() {
         if (publicUri.getPort() == -1) {
-            return publicUri.getScheme().equalsIgnoreCase("https") ? 443 : 80;
+            return "https".equalsIgnoreCase(publicUri.getScheme()) ? 443 : 80;
         }
         return publicUri.getPort();
     }
@@ -137,8 +131,8 @@ public class NettyWebServer implements WebServer {
 
     @Override
     public NettyWebServer staleConnectionTimeout(long millis) {
-        staleConnectionTimeout = millis;
-        return this;
+        // TODO
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -163,110 +157,48 @@ public class NettyWebServer implements WebServer {
     }
 
     @Override
-    public Future<NettyWebServer> start() {
-        FutureTask<NettyWebServer> future = new FutureTask<NettyWebServer>(new Callable<NettyWebServer>() {
-            @Override
-            public NettyWebServer call() throws Exception {
-                if (isRunning()) {
-                    throw new IllegalStateException("Server already started.");
-                }
+    public void start() throws Exception {
+        if (isRunning()) {
+            throw new IllegalStateException("Server already started.");
+        }
 
-                // Configure the server.
-                bootstrap = new ServerBootstrap();
+        bossGroup = new NioEventLoopGroup(1, new DefaultThreadFactory(getClass().getSimpleName() + ".acceptor"));
+        workerGroup = new NioEventLoopGroup(1, new DefaultThreadFactory(getClass().getSimpleName() + ".worker"));
 
-                // Set up the event pipeline factory.
-                bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
-                    @Override
-                    public ChannelPipeline getPipeline() throws Exception {
-                        long timestamp = timestamp();
-                        Object id = nextId();
-                        ChannelPipeline pipeline = pipeline();
-                        if (sslContext != null) {
-                            SSLEngine sslEngine = sslContext.createSSLEngine();
-                            sslEngine.setUseClientMode(false);
-                            SslHandler ssl = new SslHandler(sslEngine);
-                            ssl.setCloseOnSSLException(true);
-                            pipeline.addLast("ssl", ssl);
-                        }
-                        pipeline.addLast("staleconnectiontracker", staleConnectionTrackingHandler);
-                        pipeline.addLast("connectiontracker", connectionTrackingHandler);
-                        pipeline.addLast("flashpolicydecoder", new FlashPolicyFileDecoder(executor, exceptionHandler, ioExceptionHandler, getPort()));
-                        pipeline.addLast("decoder", new HttpRequestDecoder(maxInitialLineLength, maxHeaderSize, maxChunkSize));
-                        pipeline.addLast("aggregator", new HttpChunkAggregator(maxContentLength));
-                        pipeline.addLast("decompressor", new HttpContentDecompressor());
-                        pipeline.addLast("encoder", new HttpResponseEncoder());
-                        pipeline.addLast("compressor", new HttpContentCompressor());
-                        pipeline.addLast("handler", new NettyHttpChannelHandler(executor, handlers, id, timestamp, exceptionHandler, ioExceptionHandler));
-                        return pipeline;
-                    }
-                });
+        // Configure the server.
+        bootstrap = new ServerBootstrap();
+        bootstrap
+                .group(bossGroup, workerGroup)
+                .channel(NioServerSocketChannel.class)
+                .childHandler(new NettyWebServerInitializer());
 
-                staleConnectionTrackingHandler = new StaleConnectionTrackingHandler(staleConnectionTimeout, executor);
-                ScheduledExecutorService staleCheckExecutor = Executors.newSingleThreadScheduledExecutor(new NamingThreadFactory("WEBBIT-STALE-CONNECTION-CHECK-THREAD"));
-                staleCheckExecutor.scheduleWithFixedDelay(new Runnable() {
-                    @Override
-                    public void run() {
-                        staleConnectionTrackingHandler.closeStaleConnections();
-                    }
-                }, staleConnectionTimeout / 2, staleConnectionTimeout / 2, TimeUnit.MILLISECONDS);
-                executorServices.add(staleCheckExecutor);
 
-                connectionTrackingHandler = new ConnectionTrackingHandler();
-                ExecutorService bossExecutor = Executors.newSingleThreadExecutor(new NamingThreadFactory("WEBBIT-BOSS-THREAD"));
-                executorServices.add(bossExecutor);
-                ExecutorService workerExecutor = Executors.newSingleThreadExecutor(new NamingThreadFactory("WEBBIT-WORKER-THREAD"));
-                executorServices.add(workerExecutor);
-                bootstrap.setFactory(new NioServerSocketChannelFactory(bossExecutor, workerExecutor, 1));
-                channel = bootstrap.bind(socketAddress);
-                return NettyWebServer.this;
-            }
-        });
-        // don't use Executor here - it's just another resource we need to manage -
-        // thread creation on startup should be fine
-        final Thread thread = new Thread(future, "WEBBIT-STARTUP-THREAD");
-        thread.start();
-        return future;
+        channel = bootstrap.bind(socketAddress).sync().channel();
     }
 
     public boolean isRunning() {
-        return channel != null && channel.isBound();
+        return channel != null && channel.isActive();
     }
 
     @Override
-    public Future<WebServer> stop() {
-        FutureTask<WebServer> future = new FutureTask<WebServer>(new Callable<WebServer>() {
-            @Override
-            public WebServer call() throws Exception {
-                if (channel != null) {
-                    channel.close();
-                }
-                if (connectionTrackingHandler != null) {
-                    connectionTrackingHandler.closeAllConnections();
-                    connectionTrackingHandler = null;
-                }
-                if (bootstrap != null) {
-                    bootstrap.releaseExternalResources();
-                }
-
-                // shut down all services & give them a chance to terminate
-                for (ExecutorService executorService : executorServices) {
-                    shutdownAndAwaitTermination(executorService);
-                }
-
-                bootstrap = null;
-
-                if (channel != null) {
-                    channel.getCloseFuture().await();
-                }
-
-                return NettyWebServer.this;
+    public void stop() throws Exception {
+        try {
+            if (null != channel) {
+                channel.close().sync();
             }
-        });
-        // don't use Executor here - it's just another resource we need to manage -
-        // thread creation on shutdown should be fine
-        final Thread thread = new Thread(future, "WEBBIT-SHUTDOW-THREAD");
-        thread.start();
-        return future;
+
+            // shut down all services & give them a chance to terminate
+            for (ExecutorService executorService : executorServices) {
+                shutdownAndAwaitTermination(executorService);
+            }
+        } finally {
+            if (null != bossGroup) {
+                bossGroup.shutdownGracefully();
+            }
+            if (null != workerGroup) {
+                workerGroup.shutdownGracefully();
+            }
+        }
     }
 
     // See JavaDoc for ExecutorService
@@ -310,7 +242,7 @@ public class NettyWebServer implements WebServer {
     }
 
     /**
-     * @see HttpChunkAggregator
+     * @see HttpObjectAggregator
      */
     public NettyWebServer maxContentLength(int maxContentLength) {
         this.maxContentLength = maxContentLength;
@@ -333,12 +265,19 @@ public class NettyWebServer implements WebServer {
         return this;
     }
 
+    public NettyWebServer maxWebSocketFrameSize(int maxWebSocketFrameSize) {
+        this.maxWebSocketFrameSize = maxWebSocketFrameSize;
+        return this;
+    }
+
     private static URI localUri(int port) {
         try {
             return URI.create("http://" + InetAddress.getLocalHost()
                     .getHostName() + (port == 80 ? "" : (":" + port)) + "/");
         } catch (UnknownHostException e) {
-            throw new RuntimeException("can not create URI from localhost hostname - use constructor to pass an explicit URI", e);
+            throw new RuntimeException(
+                    "can not create URI from localhost hostname - use constructor to pass an explicit URI",
+                    e);
         }
     }
 
@@ -346,8 +285,36 @@ public class NettyWebServer implements WebServer {
         return System.currentTimeMillis();
     }
 
-    protected Object nextId() {
-        return nextId++;
-    }
+    class NettyWebServerInitializer extends ChannelInitializer<SocketChannel> {
+        @Override
+        protected void initChannel(SocketChannel channel) throws Exception {
+            ChannelPipeline pipeline = channel.pipeline();
 
+            long timestamp = timestamp();
+            if (sslContext != null) {
+                SSLEngine engine = sslContext.createSSLEngine();
+                engine.setUseClientMode(false);
+                pipeline.addLast("ssl", new SslHandler(engine));
+            }
+//  TODO          pipeline.addLast("connectiontracker", connectionTrackingHandler);
+
+            pipeline.addLast("codec-http", new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize));
+            pipeline.addLast("aggregator", new HttpObjectAggregator(maxContentLength));
+            // cannot use compression and chunked writing by default together
+            // http://stackoverflow.com/questions/20136334/netty-httpstaticfileserver-example-not-working-with-httpcontentcompressor
+//            pipeline.addLast("decompressor", new HttpContentDecompressor());
+//            pipeline.addLast("compressor", new HttpContentCompressor());
+            pipeline.addLast("chunkedWriter", new ChunkedWriteHandler());
+
+            // TODO for stale, look at the netty idle stuff
+
+            pipeline.addLast("handler",
+                             new NettyHttpChannelHandler(executor,
+                                                         handlers,
+                                                         timestamp,
+                                                         exceptionHandler,
+                                                         ioExceptionHandler,
+                                                         maxWebSocketFrameSize));
+        }
+    }
 }

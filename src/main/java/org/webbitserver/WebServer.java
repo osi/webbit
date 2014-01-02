@@ -1,6 +1,8 @@
 package org.webbitserver;
 
 import java.io.InputStream;
+import java.net.URI;
+import java.util.concurrent.Executor;
 
 /**
  * <p>Configures an event based webserver.</p>
@@ -38,7 +40,7 @@ import java.io.InputStream;
  * @see WebSocketConnection
  * @see EventSourceConnection
  */
-public interface WebServer extends Endpoint<WebServer> {
+public interface WebServer {
 
     /**
      * Add an HttpHandler. When a request comes in the first HttpHandler will be invoked.
@@ -111,4 +113,55 @@ public interface WebServer extends Endpoint<WebServer> {
      *          A problem loading the keystore
      */
     WebServer setupSsl(InputStream keyStore, String storePass, String keyPass) throws WebbitException;
+
+    /**
+     * Start
+     */
+    void start() throws Exception;
+
+    /**
+     * Stop
+     */
+    void stop() throws Exception;
+
+    /**
+     * What to do when an exception gets thrown in a handler.
+     * <p/>
+     * Defaults to using {@link org.webbitserver.handler.exceptions.PrintStackTraceExceptionHandler}.
+     * It is suggested that apps supply their own implementation (e.g. to log somewhere).
+     */
+    WebServer uncaughtExceptionHandler(Thread.UncaughtExceptionHandler handler);
+
+    /**
+     * What to do when an exception occurs when attempting to read/write data
+     * from/to the underlying connection. e.g. If an HTTP request disconnects
+     * before it was expected.
+     * <p/>
+     * Defaults to using {@link org.webbitserver.handler.exceptions.SilentExceptionHandler}
+     * as this is a common thing to happen on a network, and most systems should not care.
+     */
+    WebServer connectionExceptionHandler(Thread.UncaughtExceptionHandler handler);
+
+    /**
+     * Get main work executor that all handlers will execute on.
+     */
+    Executor getExecutor();
+
+    /**
+     * Get base URI that endpoint is serving on (or connected to).
+     */
+    URI getUri();
+
+    /**
+     * Setup SSL/TLS handler
+     * <p/>
+     * This is shortcut for {@code setupSsl(keyStore, pass, pass)}.
+     *
+     * @param keyStore Keystore InputStream
+     * @param pass     Store and key password
+     * @return current WebServer instance
+     * @throws WebbitException A problem loading the keystore
+     * @see #setupSsl(String, String, String)
+     */
+    WebServer setupSsl(InputStream keyStore, String pass) throws WebbitException;
 }

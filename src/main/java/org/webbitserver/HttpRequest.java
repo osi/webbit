@@ -1,6 +1,7 @@
 package org.webbitserver;
 
-import java.net.HttpCookie;
+import io.netty.handler.codec.http.Cookie;
+
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.Map;
@@ -14,8 +15,6 @@ import java.util.Set;
  * @see HttpResponse
  */
 public interface HttpRequest extends DataHolder {
-
-    public String COOKIE_HEADER = "Cookie";
 
     String uri();
 
@@ -33,8 +32,10 @@ public interface HttpRequest extends DataHolder {
      * <p/>
      * If there are multiple headers with the same name, it will return one of them, but it is not
      * defined which one. Instead, use {@link #headers(String)}.
+     *
+     * @param name
      */
-    String header(String name);
+    String header(CharSequence name);
 
     /**
      * Retrieve all values for an HTTP header. If no values are found, an empty List is returned.
@@ -49,7 +50,7 @@ public interface HttpRequest extends DataHolder {
     /**
      * @return all inbound cookies
      */
-    List<HttpCookie> cookies();
+    Set<Cookie> cookies();
 
     /**
      * Get a cookie with a specific name
@@ -57,7 +58,7 @@ public interface HttpRequest extends DataHolder {
      * @param name cookie name
      * @return cookie with that name
      */
-    HttpCookie cookie(String name);
+    Cookie cookie(String name);
 
     /**
      * Get query parameter value.

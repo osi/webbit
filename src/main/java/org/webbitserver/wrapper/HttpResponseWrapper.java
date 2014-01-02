@@ -1,8 +1,8 @@
 package org.webbitserver.wrapper;
 
+import io.netty.handler.codec.http.Cookie;
 import org.webbitserver.HttpResponse;
 
-import java.net.HttpCookie;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Date;
@@ -46,8 +46,8 @@ public class HttpResponseWrapper implements HttpResponse {
 
     @Override
     public HttpResponseWrapper chunked() {
-         response.chunked();
-         return this;
+        response.chunked();
+        return this;
     }
 
     @Override
@@ -62,7 +62,7 @@ public class HttpResponseWrapper implements HttpResponse {
     }
 
     @Override
-    public HttpResponseWrapper header(String name, String value) {
+    public HttpResponseWrapper header(CharSequence name, CharSequence value) {
         response.header(name, value);
         return this;
     }
@@ -74,20 +74,14 @@ public class HttpResponseWrapper implements HttpResponse {
     }
 
     @Override
-    public HttpResponseWrapper cookie(HttpCookie httpCookie) {
-        response.cookie(httpCookie);
+    public HttpResponseWrapper cookie(Cookie cookie) {
+        response.cookie(cookie);
         return this;
     }
 
     @Override
     public HttpResponseWrapper content(String content) {
         response.content(content);
-        return this;
-    }
-
-    @Override
-    public HttpResponseWrapper write(String content) {
-        response.write(content);
         return this;
     }
 
@@ -116,13 +110,13 @@ public class HttpResponseWrapper implements HttpResponse {
     }
 
     @Override
-    public HttpResponseWrapper header(String name, Date value) {
+    public HttpResponseWrapper header(CharSequence name, Date value) {
         response.header(name, value);
         return this;
     }
 
     @Override
-    public boolean containsHeader(String name) {
+    public boolean containsHeader(CharSequence name) {
         return response.containsHeader(name);
     }
 }

@@ -1,10 +1,11 @@
 package org.webbitserver.stub;
 
+import io.netty.handler.codec.http.Cookie;
+import io.netty.handler.codec.http.CookieDecoder;
+import io.netty.handler.codec.http.HttpHeaders;
 import org.webbitserver.HttpRequest;
-import org.webbitserver.helpers.InboundCookieParser;
 import org.webbitserver.helpers.QueryParameters;
 
-import java.net.HttpCookie;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
@@ -22,7 +23,7 @@ public class StubHttpRequest extends StubDataHolder implements HttpRequest {
 
     private String uri = "/";
     private String method = "GET";
-    private List<Map.Entry<String, String>> headers = new ArrayList<Map.Entry<String, String>>();
+    private final List<Map.Entry<String, String>> headers = new ArrayList<>();
     private SocketAddress remoteAddress = new InetSocketAddress("localhost", 0);
     private Object id = "StubID";
     private long timestamp = 0;
@@ -47,7 +48,7 @@ public class StubHttpRequest extends StubDataHolder implements HttpRequest {
     }
 
     @Override
-    public String header(String name) {
+    public String header(CharSequence name) {
         for (Map.Entry<String, String> header : headers) {
             if (header.getKey().equals(name)) {
                 return header.getValue();
@@ -67,13 +68,13 @@ public class StubHttpRequest extends StubDataHolder implements HttpRequest {
     }
 
     @Override
-    public List<HttpCookie> cookies() {
-        return InboundCookieParser.parse(headers(COOKIE_HEADER));
+    public Set<Cookie> cookies() {
+        return CookieDecoder.decode(header(HttpHeaders.Names.COOKIE));
     }
 
     @Override
-    public HttpCookie cookie(String name) {
-        for (HttpCookie cookie : cookies()) {
+    public Cookie cookie(String name) {
+        for (Cookie cookie : cookies()) {
             if (cookie.getName().equals(name)) {
                 return cookie;
             }
@@ -113,13 +114,13 @@ public class StubHttpRequest extends StubDataHolder implements HttpRequest {
 
     @Override
     public String cookieValue(String name) {
-        HttpCookie cookie = cookie(name);
+        Cookie cookie = cookie(name);
         return cookie == null ? null : cookie.getValue();
     }
 
     @Override
     public List<String> headers(String name) {
-        List<String> result = new ArrayList<String>();
+        List<String> result = new ArrayList<>();
         for (Map.Entry<String, String> header : headers) {
             if (header.getKey().equals(name)) {
                 result.add(header.getValue());
@@ -159,7 +160,7 @@ public class StubHttpRequest extends StubDataHolder implements HttpRequest {
     }
 
     public StubHttpRequest header(String name, String value) {
-        headers.add(new AbstractMap.SimpleEntry<String, String>(name, value));
+        headers.add(new AbstractMap.SimpleEntry<>(name, value));
         return this;
     }
 

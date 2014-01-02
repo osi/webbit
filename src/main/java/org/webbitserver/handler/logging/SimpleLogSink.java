@@ -1,5 +1,9 @@
 package org.webbitserver.handler.logging;
 
+import io.netty.buffer.ByteBufUtil;
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
 import org.webbitserver.EventSourceConnection;
 import org.webbitserver.HttpRequest;
 import org.webbitserver.WebSocketConnection;
@@ -8,8 +12,6 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.util.Date;
-
-import static org.webbitserver.helpers.Hex.toHex;
 
 public class SimpleLogSink implements LogSink {
 
@@ -64,18 +66,36 @@ public class SimpleLogSink implements LogSink {
     }
 
     @Override
-    public void webSocketInboundData(WebSocketConnection connection, byte[] data) {
-        custom(connection.httpRequest(), "WEB-SOCKET-" + connection.version() + "-IN-HEX", toHex(data));
+    public void webSocketInboundData(WebSocketConnection connection, BinaryWebSocketFrame data) {
+        try {
+            custom(connection.httpRequest(),
+                   "WEB-SOCKET-" + connection.version() + "-IN-HEX",
+                   ByteBufUtil.hexDump(data.content()));
+        } finally {
+            data.release();
+        }
     }
 
     @Override
-    public void webSocketInboundPing(WebSocketConnection connection, byte[] msg) {
-        custom(connection.httpRequest(), "WEB-SOCKET-" + connection.version() + "-IN-PING", toHex(msg));
+    public void webSocketInboundPing(WebSocketConnection connection, PingWebSocketFrame msg) {
+        try {
+            custom(connection.httpRequest(),
+                   "WEB-SOCKET-" + connection.version() + "-IN-PING",
+                   ByteBufUtil.hexDump(msg.content()));
+        } finally {
+            msg.release();
+        }
     }
 
     @Override
-    public void webSocketInboundPong(WebSocketConnection connection, byte[] msg) {
-        custom(connection.httpRequest(), "WEB-SOCKET-" + connection.version() + "-IN-PONG", toHex(msg));
+    public void webSocketInboundPong(WebSocketConnection connection, PongWebSocketFrame msg) {
+        try {
+            custom(connection.httpRequest(),
+                   "WEB-SOCKET-" + connection.version() + "-IN-PONG",
+                   ByteBufUtil.hexDump(msg.content()));
+        } finally {
+            msg.release();
+        }
     }
 
     @Override
@@ -85,17 +105,17 @@ public class SimpleLogSink implements LogSink {
 
     @Override
     public void webSocketOutboundData(WebSocketConnection connection, byte[] data) {
-        custom(connection.httpRequest(), "WEB-SOCKET-" + connection.version() + "-OUT-HEX", toHex(data));
+        custom(connection.httpRequest(), "WEB-SOCKET-" + connection.version() + "-OUT-HEX", ByteBufUtil.hexDump(data));
     }
 
     @Override
     public void webSocketOutboundPing(WebSocketConnection connection, byte[] msg) {
-        custom(connection.httpRequest(), "WEB-SOCKET-" + connection.version() + "-OUT-PING", toHex(msg));
+        custom(connection.httpRequest(), "WEB-SOCKET-" + connection.version() + "-OUT-PING", ByteBufUtil.hexDump(msg));
     }
 
     @Override
     public void webSocketOutboundPong(WebSocketConnection connection, byte[] msg) {
-        custom(connection.httpRequest(), "WEB-SOCKET-" + connection.version() + "-OUT-PONG", toHex(msg));
+        custom(connection.httpRequest(), "WEB-SOCKET-" + connection.version() + "-OUT-PONG", ByteBufUtil.hexDump(msg));
     }
 
     @Override
@@ -144,7 +164,9 @@ public class SimpleLogSink implements LogSink {
         exception.printStackTrace();
     }
 
-    protected Appendable formatLogEntry(Appendable out, HttpRequest request, String action, String data) throws IOException {
+    protected Appendable formatLogEntry(Appendable out, HttpRequest request, String action, String data)
+            throws IOException
+    {
         long cumulativeTimeOfRequest = cumulativeTimeOfRequest(request);
         Date now = new Date();
         formatValue(out, now);

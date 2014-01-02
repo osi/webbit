@@ -1,5 +1,8 @@
 package org.webbitserver.handler.logging;
 
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
 import org.webbitserver.EventSourceConnection;
 import org.webbitserver.HttpRequest;
 import org.webbitserver.WebSocketConnection;
@@ -16,11 +19,11 @@ public interface LogSink {
 
     void webSocketInboundData(WebSocketConnection connection, String data);
 
-    void webSocketInboundData(WebSocketConnection connection, byte[] message);
+    void webSocketInboundData(WebSocketConnection connection, BinaryWebSocketFrame message);
 
-    void webSocketInboundPing(WebSocketConnection connection, byte[] msg);
+    void webSocketInboundPing(WebSocketConnection connection, PingWebSocketFrame msg);
 
-    void webSocketInboundPong(WebSocketConnection connection, byte[] msg);
+    void webSocketInboundPong(WebSocketConnection connection, PongWebSocketFrame msg);
 
     void webSocketOutboundData(WebSocketConnection connection, String data);
 

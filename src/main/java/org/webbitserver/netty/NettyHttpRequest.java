@@ -1,33 +1,40 @@
 package org.webbitserver.netty;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.handler.codec.http.HttpRequest;
-import org.jboss.netty.util.CharsetUtil;
-import org.webbitserver.helpers.InboundCookieParser;
+import io.netty.buffer.ByteBuf;
+import io.netty.handler.codec.http.Cookie;
+import io.netty.handler.codec.http.CookieDecoder;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.util.CharsetUtil;
+import org.webbitserver.HttpRequest;
 import org.webbitserver.helpers.QueryParameters;
 
-import java.net.HttpCookie;
 import java.net.SocketAddress;
-import java.net.URI;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-public class NettyHttpRequest implements org.webbitserver.HttpRequest {
+public class NettyHttpRequest implements HttpRequest {
 
-    private final HttpRequest httpRequest;
-    private final MessageEvent messageEvent;
-    private final Map<String, Object> data = new HashMap<String, Object>();
+    private final FullHttpRequest httpRequest;
+    private final Map<String, Object> data = new HashMap<>();
+    private final SocketAddress remoteAddress;
     private final Object id;
     private final long timestamp;
 
     private QueryParameters queryParameters;
     private QueryParameters postParameters;
 
-    public NettyHttpRequest(MessageEvent messageEvent, HttpRequest httpRequest, Object id, long timestamp) {
-        this.messageEvent = messageEvent;
+    public NettyHttpRequest(FullHttpRequest httpRequest, SocketAddress remoteAddress, Object id, long timestamp) {
         this.httpRequest = httpRequest;
+        this.remoteAddress = remoteAddress;
         this.id = id;
         this.timestamp = timestamp;
+    }
+
+    FullHttpRequest netty() {
+        return httpRequest;
     }
 
     @Override
@@ -42,28 +49,28 @@ public class NettyHttpRequest implements org.webbitserver.HttpRequest {
     }
 
     @Override
-    public String header(String name) {
-        return httpRequest.getHeader(name);
+    public String header(CharSequence name) {
+        return httpRequest.headers().get(name);
     }
 
     @Override
     public List<String> headers(String name) {
-        return httpRequest.getHeaders(name);
+        return httpRequest.headers().getAll(name);
     }
 
     @Override
     public boolean hasHeader(String name) {
-        return httpRequest.containsHeader(name);
+        return httpRequest.headers().contains(name);
     }
 
     @Override
-    public List<HttpCookie> cookies() {
-        return InboundCookieParser.parse(headers(COOKIE_HEADER));
+    public Set<Cookie> cookies() {
+        return CookieDecoder.decode(header(HttpHeaders.Names.COOKIE.toString()));
     }
 
     @Override
-    public HttpCookie cookie(String name) {
-        for (HttpCookie cookie : cookies()) {
+    public Cookie cookie(String name) {
+        for (Cookie cookie : cookies()) {
             if (cookie.getName().equals(name)) {
                 return cookie;
             }
@@ -103,7 +110,7 @@ public class NettyHttpRequest implements org.webbitserver.HttpRequest {
 
     private QueryParameters parsedQueryParams() {
         if (queryParameters == null) {
-            queryParameters = new QueryParameters(URI.create(uri()).getRawQuery());
+            queryParameters = new QueryParameters(uri());
         }
         return queryParameters;
     }
@@ -117,28 +124,28 @@ public class NettyHttpRequest implements org.webbitserver.HttpRequest {
 
     @Override
     public String cookieValue(String name) {
-        HttpCookie cookie = cookie(name);
+        Cookie cookie = cookie(name);
         return cookie == null ? null : cookie.getValue();
     }
 
     @Override
     public List<Map.Entry<String, String>> allHeaders() {
-        return httpRequest.getHeaders();
+        return httpRequest.headers().entries();
     }
 
     @Override
     public String method() {
-        return httpRequest.getMethod().getName();
+        return httpRequest.getMethod().name();
     }
 
     @Override
     public String body() {
-        return httpRequest.getContent().toString(CharsetUtil.UTF_8); // TODO get charset from request
+        return httpRequest.content().toString(CharsetUtil.UTF_8); // TODO get charset from request
     }
 
     @Override
     public byte[] bodyAsBytes() {
-        ChannelBuffer buffer = httpRequest.getContent();
+        ByteBuf buffer = httpRequest.content();
         byte[] body = new byte[buffer.readableBytes()];
         buffer.getBytes(buffer.readerIndex(), body);
         return body;
@@ -167,7 +174,7 @@ public class NettyHttpRequest implements org.webbitserver.HttpRequest {
 
     @Override
     public SocketAddress remoteAddress() {
-        return messageEvent.getRemoteAddress();
+        return remoteAddress;
     }
 
     @Override
@@ -182,6 +189,6 @@ public class NettyHttpRequest implements org.webbitserver.HttpRequest {
 
     @Override
     public String toString() {
-        return messageEvent.getRemoteAddress() + " " + httpRequest.getMethod() + " " + httpRequest.getUri();
+        return remoteAddress + " " + httpRequest.getMethod() + " " + httpRequest.getUri();
     }
 }

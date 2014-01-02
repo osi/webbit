@@ -1,8 +1,8 @@
 package org.webbitserver.wrapper;
 
+import io.netty.handler.codec.http.Cookie;
 import org.webbitserver.HttpRequest;
 
-import java.net.HttpCookie;
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +46,7 @@ public class HttpRequestWrapper implements HttpRequest {
     }
 
     @Override
-    public String header(String name) {
+    public String header(CharSequence name) {
         return request.header(name);
     }
 
@@ -56,12 +56,12 @@ public class HttpRequestWrapper implements HttpRequest {
     }
 
     @Override
-    public List<HttpCookie> cookies() {
+    public Set<Cookie> cookies() {
         return request.cookies();
     }
 
     @Override
-    public HttpCookie cookie(String name) {
+    public Cookie cookie(String name) {
         return request.cookie(name);
     }
 

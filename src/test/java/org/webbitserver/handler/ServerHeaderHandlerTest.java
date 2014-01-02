@@ -5,9 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.webbitserver.WebServer;
 
-import java.io.IOException;
 import java.net.URLConnection;
-import java.util.concurrent.ExecutionException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -25,40 +23,40 @@ public class ServerHeaderHandlerTest {
     }
 
     @After
-    public void stopServer() throws ExecutionException, InterruptedException {
-        webServer.stop().get();
+    public void stopServer() throws Exception {
+        webServer.stop();
     }
 
     @Test
-    public void setsHttpServerHeader() throws InterruptedException, ExecutionException, IOException {
+    public void setsHttpServerHeader() throws Exception {
         webServer.add(new ServerHeaderHandler("My Server"))
                 .add(new StringHttpHandler("text/plain", "body"))
                 .start()
-                .get();
+        ;
         URLConnection urlConnection = httpGet(webServer, "/");
         assertEquals("My Server", urlConnection.getHeaderField("Server"));
         assertEquals("body", contents(urlConnection));
     }
 
     @Test
-    public void canBeOverriddenByOtherHandlers() throws InterruptedException, ExecutionException, IOException {
+    public void canBeOverriddenByOtherHandlers() throws Exception {
         webServer.add(new ServerHeaderHandler("My Server"))
                 .add(new ServerHeaderHandler("No actually, this is My Server"))
                 .add(new StringHttpHandler("text/plain", "body"))
                 .start()
-                .get();
+        ;
         URLConnection urlConnection = httpGet(webServer, "/");
         assertEquals("No actually, this is My Server", urlConnection.getHeaderField("Server"));
         assertEquals("body", contents(urlConnection));
     }
 
     @Test
-    public void canBeClearedByOtherHandlers() throws InterruptedException, ExecutionException, IOException {
+    public void canBeClearedByOtherHandlers() throws Exception {
         webServer.add(new ServerHeaderHandler("My Server"))
                 .add(new ServerHeaderHandler(null))
                 .add(new StringHttpHandler("text/plain", "body"))
                 .start()
-                .get();
+        ;
         URLConnection urlConnection = httpGet(webServer, "/");
         assertFalse(urlConnection.getHeaderFields().containsKey("Server"));
         assertEquals("body", contents(urlConnection));

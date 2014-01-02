@@ -18,7 +18,7 @@ import static org.webbitserver.WebServers.createWebServer;
 
 public class Main {
     public static class Pusher {
-        private List<EventSourceConnection> connections = new ArrayList<EventSourceConnection>();
+        private List<EventSourceConnection> connections = new ArrayList<>();
         private int count = 1;
 
         public void addConnection(EventSourceConnection connection) {
@@ -67,9 +67,9 @@ public class Main {
                         pusher.removeConnection(connection);
                     }
                 })
-                .add(new EmbeddedResourceHandler("samples/eventsource/content"))
-                .start()
-                .get();
+                .add(new EmbeddedResourceHandler("samples/eventsource/content"));
+
+        webServer.start();
 
         System.out.println("EventSource demo running on: " + webServer.getUri());
 

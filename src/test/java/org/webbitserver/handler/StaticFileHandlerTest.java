@@ -11,21 +11,20 @@ import org.webbitserver.stub.StubHttpResponse;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.Executor;
 
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.junit.matchers.JUnitMatchers.containsString;
 import static org.webbitserver.WebServers.createWebServer;
 import static org.webbitserver.testutil.HttpClient.contents;
 import static org.webbitserver.testutil.HttpClient.httpGet;
-import java.text.SimpleDateFormat;
-import java.util.TimeZone;
-import java.util.Locale;
-import java.util.Date;
 
 public class StaticFileHandlerTest {
 
@@ -154,7 +153,7 @@ public class StaticFileHandlerTest {
         writeFile("a.foo", "");
         handler.enableDirectoryListing(true);
         assertReturnedWithStatusAndContainsContent(200, "a.foo", handle(request("/")));
-        
+
         mkdir("a");
         writeFile("a/a.foo", "");
         assertReturnedWithStatus(301, handle(request("/a")));
@@ -195,7 +194,7 @@ public class StaticFileHandlerTest {
         });
         assertReturnedWithStatusAndContainsContent(200, "Monkeys", handle(request("/a/")));
     }
-    
+
     @Test
     public void prefersWelcomeFileToDirectoryListing() throws Exception {
         writeFile("a.foo", "");
@@ -204,19 +203,26 @@ public class StaticFileHandlerTest {
         assertReturnedWithStatusAndContainsContent(200, "hi", handle(request("/")));
     }
 
-    @Test 
+    @Test
     public void shouldHandleCacheHeaders() throws Exception {
         mkdir("a/b");
         writeFile("index_cache.html", "Blah");
-        Long  aYearAgo = (new Date()).getTime() - (365 * 24 * 60 * 60 * 1000); 
-        Long  aYearFromNow = (new Date()).getTime() + (365 * 24 * 60 * 60 * 1000); 
+        Long aYearAgo = new Date().getTime() - (365 * 24 * 60 * 60 * 1000);
+        Long aYearFromNow = (new Date()).getTime() + (365 * 24 * 60 * 60 * 1000);
         assertEquals(true, handle(request("/index_cache.html")).header("Last-Modified") != null);
         assertEquals(true, handle(request("/index_cache.html")).header("ETag") != null);
         assertEquals(true, handle(request("/index_cache.html")).header("Cache-Control") != null);
-        assertEquals(true, handle(request("/index_cache.html")).header("Cache-Control").contains("max-age=3600, public"));
+        assertEquals(true,
+                     handle(request("/index_cache.html")).header("Cache-Control").contains("max-age=3600, public"));
         assertEquals(true, handle(request("/index_cache.html")).header("Expires") != null);
-        assertEquals(true, handleWithHeader(request("/index_cache.html"), "If-Modified-Since", toDateHeader(new Date(aYearAgo))).status() == 200);
-        assertEquals(true, handleWithHeader(request("/index_cache.html"), "If-Modified-Since", toDateHeader(new Date(aYearFromNow))).status() == 304);
+        assertEquals(true,
+                     handleWithHeader(request("/index_cache.html"),
+                                      "If-Modified-Since",
+                                      toDateHeader(new Date(aYearAgo))).status() == 200);
+        assertEquals(true,
+                     handleWithHeader(request("/index_cache.html"),
+                                      "If-Modified-Since",
+                                      toDateHeader(new Date(aYearFromNow))).status() == 304);
     }
 
     @Test
@@ -261,22 +267,22 @@ public class StaticFileHandlerTest {
      * the responses.
      */
     @Test
-    public void shouldWorkInRealServer() throws IOException, InterruptedException, ExecutionException {
+    public void shouldWorkInRealServer() throws Exception {
         writeFile("index.html", "Hello world");
         writeFile("foo.js", "some js");
         mkdir("some/dir");
         writeFile("some/dir/content1.txt", "some txt");
 
         WebServer webServer = createWebServer(59504)
-                .add(handler)
-                .start()
-                .get();
+                .add(handler);
+        webServer
+                .start();
         try {
             assertEquals("Hello world", contents(httpGet(webServer, "/index.html")));
             assertEquals("some js", contents(httpGet(webServer, "/foo.js?xx=y")));
             assertEquals("some txt", contents(httpGet(webServer, "/some/dir/content1.txt")));
         } finally {
-            webServer.stop().get();
+            webServer.stop();
         }
     }
 
@@ -349,16 +355,20 @@ public class StaticFileHandlerTest {
         handler.handleHttpRequest(request, response, new StubHttpControl(request, response));
         return response;
     }
-    private StubHttpResponse handleWithHeader(StubHttpRequest request, String headerName, String headerValue) throws Exception {
+
+    private StubHttpResponse handleWithHeader(StubHttpRequest request, String headerName, String headerValue)
+            throws Exception
+    {
         StubHttpResponse response = new StubHttpResponse();
         request.header(headerName, headerValue);
         handler.handleHttpRequest(request, response, new StubHttpControl(request, response));
         return response;
     }
+
     private String toDateHeader(Date date) {
-            SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
-            httpDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
-            return httpDateFormat.format(date);
+        SimpleDateFormat httpDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
+        httpDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+        return httpDateFormat.format(date);
     }
 
     private void assertReturnedWithStatus(int expectedStatus, StubHttpResponse response) {
@@ -367,7 +377,10 @@ public class StaticFileHandlerTest {
         assertNull(response.error());
     }
 
-    private void assertReturnedWithStatusAndContainsContent(int expectedStatus, String content, StubHttpResponse response) {
+    private void assertReturnedWithStatusAndContainsContent(int expectedStatus,
+                                                            String content,
+                                                            StubHttpResponse response)
+    {
         assertReturnedWithStatus(expectedStatus, response);
         assertThat(response.contentsString(), containsString(content));
     }

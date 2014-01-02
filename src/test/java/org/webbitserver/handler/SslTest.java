@@ -11,6 +11,7 @@ import javax.net.ssl.X509TrustManager;
 import java.io.InputStream;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 
 import static org.junit.Assert.assertEquals;
@@ -36,22 +37,25 @@ public class SslTest {
             assertEquals("My Server", urlConnection.getHeaderField("Server"));
             assertEquals("body", contents(urlConnection));
         } finally {
-            webServer.stop().get();
+            webServer.stop();
         }
     }
 
     @BeforeClass
     public static void disableCertValidationSetUp() throws NoSuchAlgorithmException, KeyManagementException {
         // Create a trust manager that does not validate certificate chains
-        TrustManager[] trustAllCerts = new TrustManager[]{
+        TrustManager[] trustAllCerts = {
                 new X509TrustManager() {
+                    @Override
                     public X509Certificate[] getAcceptedIssuers() {
                         return null;
                     }
 
+                    @Override
                     public void checkClientTrusted(X509Certificate[] certs, String authType) {
                     }
 
+                    @Override
                     public void checkServerTrusted(X509Certificate[] certs, String authType) {
                     }
                 }
@@ -59,7 +63,7 @@ public class SslTest {
 
         // Install the all-trusting trust manager
         SSLContext sc = SSLContext.getInstance("SSL");
-        sc.init(null, trustAllCerts, new java.security.SecureRandom());
+        sc.init(null, trustAllCerts, new SecureRandom());
         HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
     }
 }
