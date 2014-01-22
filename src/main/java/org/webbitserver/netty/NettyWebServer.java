@@ -4,6 +4,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.DefaultEventLoop;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -14,6 +15,8 @@ import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
+import io.netty.util.concurrent.EventExecutorGroup;
+import io.netty.util.concurrent.Future;
 import org.webbitserver.EventSourceHandler;
 import org.webbitserver.HttpHandler;
 import org.webbitserver.WebServer;
@@ -26,7 +29,6 @@ import org.webbitserver.handler.PathMatchHandler;
 import org.webbitserver.handler.ServerHeaderHandler;
 import org.webbitserver.handler.exceptions.PrintStackTraceExceptionHandler;
 import org.webbitserver.handler.exceptions.SilentExceptionHandler;
-import org.webbitserver.helpers.NamingThreadFactory;
 import org.webbitserver.helpers.SslFactory;
 
 import javax.net.ssl.SSLContext;
@@ -40,20 +42,18 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 public class NettyWebServer implements WebServer {
     private final SocketAddress socketAddress;
     private final URI publicUri;
     private final List<HttpHandler> handlers = new ArrayList<>();
-    private final List<ExecutorService> executorServices = new ArrayList<>();
-    private final Executor executor;
 
-    private ServerBootstrap bootstrap;
     private Channel channel;
     private SSLContext sslContext;
+
+    private EventLoopGroup ioBossGroup;
+    private EventLoopGroup ioWorkerGroup;
+    private EventExecutorGroup httpHandlerGroup;
 
     private Thread.UncaughtExceptionHandler exceptionHandler;
     private Thread.UncaughtExceptionHandler ioExceptionHandler;
@@ -61,26 +61,13 @@ public class NettyWebServer implements WebServer {
     private int maxHeaderSize = 8192;
     private int maxChunkSize = 8192;
     private int maxContentLength = 65536;
-    private EventLoopGroup bossGroup;
-    private EventLoopGroup workerGroup;
     private int maxWebSocketFrameSize = 8192;
 
     public NettyWebServer(int port) {
-        this(Executors.newSingleThreadScheduledExecutor(new NamingThreadFactory("WEBBIT-HANDLER-THREAD")), port);
+        this(new InetSocketAddress(port), localUri(port));
     }
 
-    private NettyWebServer(ExecutorService executorService, int port) {
-        this((Executor) executorService, port);
-        // If we created the executor, we have to be responsible for tearing it down.
-        executorServices.add(executorService);
-    }
-
-    public NettyWebServer(Executor executor, int port) {
-        this(executor, new InetSocketAddress(port), localUri(port));
-    }
-
-    public NettyWebServer(Executor executor, SocketAddress socketAddress, URI publicUri) {
-        this.executor = executor;
+    public NettyWebServer(SocketAddress socketAddress, URI publicUri) {
         this.socketAddress = socketAddress;
         this.publicUri = publicUri;
 
@@ -126,7 +113,7 @@ public class NettyWebServer implements WebServer {
 
     @Override
     public Executor getExecutor() {
-        return executor;
+        return httpHandlerGroup;
     }
 
     @Override
@@ -162,18 +149,18 @@ public class NettyWebServer implements WebServer {
             throw new IllegalStateException("Server already started.");
         }
 
-        bossGroup = new NioEventLoopGroup(1, new DefaultThreadFactory(getClass().getSimpleName() + ".acceptor"));
-        workerGroup = new NioEventLoopGroup(1, new DefaultThreadFactory(getClass().getSimpleName() + ".worker"));
+        ioBossGroup = new NioEventLoopGroup(1, new DefaultThreadFactory(getClass().getSimpleName() + ".acceptor"));
+        ioWorkerGroup = new NioEventLoopGroup(1, new DefaultThreadFactory(getClass().getSimpleName() + ".worker"));
+        httpHandlerGroup = new DefaultEventLoop(new DefaultThreadFactory(getClass().getSimpleName() + ".httpHandler"));
 
         // Configure the server.
-        bootstrap = new ServerBootstrap();
-        bootstrap
-                .group(bossGroup, workerGroup)
+        channel = new ServerBootstrap()
+                .group(ioBossGroup, ioWorkerGroup)
                 .channel(NioServerSocketChannel.class)
-                .childHandler(new NettyWebServerInitializer());
-
-
-        channel = bootstrap.bind(socketAddress).sync().channel();
+                .childHandler(new NettyWebServerInitializer())
+                .bind(socketAddress)
+                .sync()
+                .channel();
     }
 
     public boolean isRunning() {
@@ -186,38 +173,22 @@ public class NettyWebServer implements WebServer {
             if (null != channel) {
                 channel.close().sync();
             }
-
-            // shut down all services & give them a chance to terminate
-            for (ExecutorService executorService : executorServices) {
-                shutdownAndAwaitTermination(executorService);
-            }
         } finally {
-            if (null != bossGroup) {
-                bossGroup.shutdownGracefully();
-            }
-            if (null != workerGroup) {
-                workerGroup.shutdownGracefully();
-            }
-        }
-    }
+            List<Future<?>> futures = new ArrayList<>(3);
 
-    // See JavaDoc for ExecutorService
-    private void shutdownAndAwaitTermination(ExecutorService executorService) {
-        executorService.shutdown(); // Disable new tasks from being submitted
-        try {
-            // Wait a while for existing tasks to terminate
-            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
-                executorService.shutdownNow(); // Cancel currently executing tasks
-                // Wait a while for tasks to respond to being cancelled
-                if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
-                    System.err.println("ExecutorService did not terminate");
-                }
+            if (null != ioBossGroup) {
+                futures.add(ioBossGroup.shutdownGracefully());
             }
-        } catch (InterruptedException ie) {
-            // (Re-)Cancel if current thread also interrupted
-            executorService.shutdownNow();
-            // Preserve interrupt status
-            Thread.currentThread().interrupt();
+            if (null != ioWorkerGroup) {
+                futures.add(ioWorkerGroup.shutdownGracefully());
+            }
+            if (null != httpHandlerGroup) {
+                futures.add(httpHandlerGroup.shutdownGracefully());
+            }
+
+            for (Future<?> future : futures) {
+                future.sync();
+            }
         }
     }
 
@@ -308,13 +279,14 @@ public class NettyWebServer implements WebServer {
 
             // TODO for stale, look at the netty idle stuff
 
-            pipeline.addLast("handler",
-                             new NettyHttpChannelHandler(executor,
-                                                         handlers,
-                                                         timestamp,
-                                                         exceptionHandler,
-                                                         ioExceptionHandler,
-                                                         maxWebSocketFrameSize));
+            pipeline.addLast(httpHandlerGroup,
+                             "handler",
+                             new NettyHttpChannelHandler(
+                                     handlers,
+                                     timestamp,
+                                     exceptionHandler,
+                                     ioExceptionHandler,
+                                     maxWebSocketFrameSize));
         }
     }
 }

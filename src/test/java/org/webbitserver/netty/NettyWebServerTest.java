@@ -15,7 +15,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertTrue;
@@ -34,7 +33,7 @@ public class NettyWebServerTest {
     @Test
     public void stopsServerCleanlyAlsoWhenClientsAreConnected() throws Exception {
         final CountDownLatch stopper = new CountDownLatch(1);
-        server = new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080);
+        server = new NettyWebServer(9080);
         server.start();
         server.add(new HttpHandler() {
             @Override
@@ -57,7 +56,7 @@ public class NettyWebServerTest {
 
     @Test
     public void restartServerDoesNotThrowException() throws Exception {
-        server = new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080);
+        server = new NettyWebServer(9080);
         server.start();
         server.stop();
         server.start();
@@ -66,7 +65,7 @@ public class NettyWebServerTest {
 
     @Test
     public void startServerAndTestIsRunning() throws Exception {
-        server = new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080);
+        server = new NettyWebServer(9080);
         server.start();
         assertTrue("Server should be running", server.isRunning());
 
@@ -83,7 +82,7 @@ public class NettyWebServerTest {
 
     private void startAndStop() throws Exception {
         List<String> beforeStart = getCurrentThreadNames();
-        NettyWebServer server = new NettyWebServer(Executors.newSingleThreadScheduledExecutor(), 9080);
+        NettyWebServer server = new NettyWebServer(9080);
         server.start();
         server.stop();
         List<String> afterStop = getCurrentThreadNames();
@@ -100,7 +99,7 @@ public class NettyWebServerTest {
 
     private List<String> getCurrentThreadNames() {
         System.gc();
-        List<String> threadNames = new ArrayList<String>();
+        List<String> threadNames = new ArrayList<>();
         Map<Thread, StackTraceElement[]> allStackTraces = Thread.getAllStackTraces();
         for (Thread thread : allStackTraces.keySet()) {
             threadNames.add(thread.getName());

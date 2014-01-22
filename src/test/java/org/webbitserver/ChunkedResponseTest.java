@@ -27,22 +27,23 @@ public class ChunkedResponseTest {
                 control.execute(new Runnable() {
                     @Override
                     public void run() {
-                        res.chunked();
-                        nap();
-                        // TODO
+                        try {
+                            res.chunked();
+                            nap();
+                            // TODO
 //                        res.write("chunk1");
-                        nap();
-                        // TODO
+                            nap();
+                            // TODO
 //                        res.write("chunk2");
-                        nap();
-                        res.end();
+                            nap();
+                            res.end();
+                        } catch (InterruptedException e) {
+                            res.error(e);
+                        }
                     }
 
-                    private void nap() {
-                        try {
-                            Thread.sleep(10);
-                        } catch (Exception ex) {
-                        }
+                    private void nap() throws InterruptedException {
+                        Thread.sleep(10);
                     }
                 });
             }

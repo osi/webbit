@@ -10,18 +10,12 @@ import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.webbitserver.WebSocketConnection;
 
-import java.util.concurrent.Executor;
-
 public class NettyWebSocketConnection extends AbstractHttpConnection implements WebSocketConnection {
 
     private final String version;
 
-    public NettyWebSocketConnection(Executor executor,
-                                    NettyHttpRequest nettyHttpRequest,
-                                    ChannelHandlerContext ctx,
-                                    String version)
-    {
-        super(ctx, nettyHttpRequest, executor);
+    public NettyWebSocketConnection(NettyHttpRequest nettyHttpRequest, ChannelHandlerContext ctx, String version) {
+        super(ctx, nettyHttpRequest);
         this.version = version;
     }
 

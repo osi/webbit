@@ -10,74 +10,54 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import org.webbitserver.WebSocketHandler;
+import org.webbitserver.WebbitException;
 
-import java.util.concurrent.Executor;
+import java.nio.channels.ClosedChannelException;
 
 public class WebSocketConnectionHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
-    private final Executor executor;
+    private final Thread.UncaughtExceptionHandler ioExceptionHandler;
     private final NettyWebSocketConnection webSocketConnection;
     private final WebSocketHandler webSocketHandler;
     private final WebSocketServerHandshaker handshaker;
-    private final ConnectionHelper connectionHelper;
 
-    public WebSocketConnectionHandler(
-            Executor executor,
-            Thread.UncaughtExceptionHandler exceptionHandler,
-            Thread.UncaughtExceptionHandler ioExceptionHandler,
-            final NettyWebSocketConnection webSocketConnection,
-            final WebSocketHandler webSocketHandler,
-            WebSocketServerHandshaker handshaker)
+    public WebSocketConnectionHandler(Thread.UncaughtExceptionHandler ioExceptionHandler,
+                                      NettyWebSocketConnection webSocketConnection,
+                                      WebSocketHandler webSocketHandler,
+                                      WebSocketServerHandshaker handshaker)
     {
-        super(false); // no auto-release
-        this.executor = executor;
+        this.ioExceptionHandler = ioExceptionHandler;
         this.webSocketConnection = webSocketConnection;
         this.webSocketHandler = webSocketHandler;
         this.handshaker = handshaker;
-        this.connectionHelper = new ConnectionHelper(executor, exceptionHandler, ioExceptionHandler) {
-            @Override
-            protected void fireOnClose() throws Throwable {
-                webSocketHandler.onClose(webSocketConnection);
-            }
-        };
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        connectionHelper.fireOnClose(ctx.channel());
+        webSocketHandler.onClose(webSocketConnection);
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        connectionHelper.fireConnectionException(ctx.channel(), cause);
+        if (cause.getCause() instanceof ClosedChannelException) {
+            ctx.close();
+        } else {
+            ioExceptionHandler.uncaughtException(Thread.currentThread(),
+                                                 WebbitException.fromException(cause, ctx.channel()));
+        }
     }
 
     @Override
-    protected void messageReceived(ChannelHandlerContext ctx, final WebSocketFrame frame) throws Exception {
-        Thread.UncaughtExceptionHandler exceptionHandlerWithContext =
-                connectionHelper.webbitExceptionWrappingExceptionHandler(ctx.channel());
-
+    protected void messageReceived(ChannelHandlerContext ctx, WebSocketFrame frame) throws Exception {
         if (frame instanceof CloseWebSocketFrame) {
             handshaker.close(ctx.channel(), (CloseWebSocketFrame) frame.retain());
-            return;
+        } else if (frame instanceof PingWebSocketFrame) {
+            webSocketHandler.onPing(webSocketConnection, (PingWebSocketFrame) frame);
+        } else if (frame instanceof PongWebSocketFrame) {
+            webSocketHandler.onPong(webSocketConnection, (PongWebSocketFrame) frame);
+        } else if (frame instanceof TextWebSocketFrame) {
+            webSocketHandler.onMessage(webSocketConnection, (TextWebSocketFrame) frame);
+        } else if (frame instanceof BinaryWebSocketFrame) {
+            webSocketHandler.onMessage(webSocketConnection, (BinaryWebSocketFrame) frame);
         }
-
-        executor.execute(new CatchingRunnable(exceptionHandlerWithContext) {
-            @Override
-            protected void go() throws Throwable {
-                try {
-                    if (frame instanceof PingWebSocketFrame) {
-                        webSocketHandler.onPing(webSocketConnection, (PingWebSocketFrame) frame);
-                    } else if (frame instanceof PongWebSocketFrame) {
-                        webSocketHandler.onPong(webSocketConnection, (PongWebSocketFrame) frame);
-                    } else if (frame instanceof TextWebSocketFrame) {
-                        webSocketHandler.onMessage(webSocketConnection, (TextWebSocketFrame) frame);
-                    } else if (frame instanceof BinaryWebSocketFrame) {
-                        webSocketHandler.onMessage(webSocketConnection, (BinaryWebSocketFrame) frame);
-                    }
-                } finally {
-                    frame.release();
-                }
-            }
-        });
     }
 }

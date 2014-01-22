@@ -40,7 +40,7 @@ public class EchoWsServer {
         }
 
         @Override
-        public void onMessage(WebSocketConnection connection, BinaryWebSocketFrame msg) {
+        public void onMessage(WebSocketConnection connection, BinaryWebSocketFrame msg) throws Exception {
             connection.send(msg.retain());
         }
     }

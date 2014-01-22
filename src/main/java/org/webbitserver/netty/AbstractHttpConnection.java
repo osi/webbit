@@ -10,14 +10,12 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 
 public abstract class AbstractHttpConnection implements HttpConnection {
-    private final Executor executor;
     private final NettyHttpRequest nettyHttpRequest;
     protected final ChannelHandlerContext ctx;
 
-    public AbstractHttpConnection(ChannelHandlerContext ctx, NettyHttpRequest nettyHttpRequest, Executor executor) {
+    public AbstractHttpConnection(ChannelHandlerContext ctx, NettyHttpRequest nettyHttpRequest) {
         this.ctx = ctx;
         this.nettyHttpRequest = nettyHttpRequest;
-        this.executor = executor;
     }
 
     protected ChannelFuture writeMessage(Object message) {
@@ -56,11 +54,11 @@ public abstract class AbstractHttpConnection implements HttpConnection {
 
     @Override
     public Executor handlerExecutor() {
-        return executor;
+        return ctx.executor();
     }
 
     @Override
     public void execute(Runnable command) {
-        handlerExecutor().execute(command);
+        ExecutorHelper.safeExecute(ctx, command);
     }
 }

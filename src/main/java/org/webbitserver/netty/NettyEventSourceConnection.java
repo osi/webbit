@@ -6,12 +6,10 @@ import io.netty.util.CharsetUtil;
 import org.webbitserver.EventSourceConnection;
 import org.webbitserver.EventSourceMessage;
 
-import java.util.concurrent.Executor;
-
 
 public class NettyEventSourceConnection extends AbstractHttpConnection implements EventSourceConnection {
-    public NettyEventSourceConnection(Executor executor, NettyHttpRequest nettyHttpRequest, ChannelHandlerContext ctx) {
-        super(ctx, nettyHttpRequest, executor);
+    public NettyEventSourceConnection(NettyHttpRequest nettyHttpRequest, ChannelHandlerContext ctx) {
+        super(ctx, nettyHttpRequest);
     }
 
     @Override

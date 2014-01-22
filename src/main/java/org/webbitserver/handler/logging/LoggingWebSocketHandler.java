@@ -20,38 +20,38 @@ class LoggingWebSocketHandler implements WebSocketHandler {
     }
 
     @Override
-    public void onOpen(WebSocketConnection connection) throws Throwable {
+    public void onOpen(WebSocketConnection connection) {
         logSink.webSocketConnectionOpen(connection);
         handler.onOpen(loggingConnection);
     }
 
     @Override
-    public void onClose(WebSocketConnection connection) throws Throwable {
+    public void onClose(WebSocketConnection connection) throws Exception {
         logSink.webSocketConnectionClose(connection);
         logSink.httpEnd(connection.httpRequest());
         handler.onClose(loggingConnection);
     }
 
     @Override
-    public void onMessage(WebSocketConnection connection, TextWebSocketFrame message) throws Throwable {
+    public void onMessage(WebSocketConnection connection, TextWebSocketFrame message) throws Exception {
         logSink.webSocketInboundData(connection, message.text());
         handler.onMessage(loggingConnection, message);
     }
 
     @Override
-    public void onMessage(WebSocketConnection connection, BinaryWebSocketFrame message) throws Throwable {
+    public void onMessage(WebSocketConnection connection, BinaryWebSocketFrame message) throws Exception {
         logSink.webSocketInboundData(connection, message.retain());
         handler.onMessage(loggingConnection, message);
     }
 
     @Override
-    public void onPing(WebSocketConnection connection, PingWebSocketFrame message) throws Throwable {
+    public void onPing(WebSocketConnection connection, PingWebSocketFrame message) throws Exception {
         logSink.webSocketInboundPing(connection, message.retain());
         handler.onPing(loggingConnection, message);
     }
 
     @Override
-    public void onPong(WebSocketConnection connection, PongWebSocketFrame message) throws Throwable {
+    public void onPong(WebSocketConnection connection, PongWebSocketFrame message) throws Exception {
         logSink.webSocketInboundPong(connection, message.retain());
         handler.onPong(loggingConnection, message);
     }

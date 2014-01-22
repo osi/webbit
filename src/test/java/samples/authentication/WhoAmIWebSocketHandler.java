@@ -1,21 +1,21 @@
 package samples.authentication;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import org.webbitserver.BaseWebSocketHandler;
 import org.webbitserver.WebSocketConnection;
 import org.webbitserver.handler.authentication.BasicAuthenticationHandler;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * WebSocket handler that keeps track of who is connected and broadcasts to other users.
  */
 public class WhoAmIWebSocketHandler extends BaseWebSocketHandler {
 
-    private final Set<WebSocketConnection> connections = new HashSet<WebSocketConnection>();
+    private final Set<WebSocketConnection> connections = new HashSet<>();
 
     @Override
-    public void onOpen(WebSocketConnection connection) throws Exception {
+    public void onOpen(WebSocketConnection connection) {
         String username = (String) connection.data(BasicAuthenticationHandler.USERNAME);
         connection.send("Hello " + username);
 

@@ -12,7 +12,7 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
  */
 public class BaseWebSocketHandler implements WebSocketHandler {
     @Override
-    public void onOpen(WebSocketConnection connection) throws Exception {
+    public void onOpen(WebSocketConnection connection) {
     }
 
     @Override
@@ -20,19 +20,19 @@ public class BaseWebSocketHandler implements WebSocketHandler {
     }
 
     @Override
-    public void onMessage(WebSocketConnection connection, TextWebSocketFrame msg) throws Throwable {
+    public void onMessage(WebSocketConnection connection, TextWebSocketFrame msg) throws Exception {
     }
 
     @Override
-    public void onMessage(WebSocketConnection connection, BinaryWebSocketFrame msg) throws Throwable {
+    public void onMessage(WebSocketConnection connection, BinaryWebSocketFrame msg) throws Exception {
     }
 
     @Override
-    public void onPing(WebSocketConnection connection, PingWebSocketFrame frame) throws Throwable {
+    public void onPing(WebSocketConnection connection, PingWebSocketFrame frame) throws Exception {
         connection.pong(new PongWebSocketFrame(frame.content()).retain());
     }
 
     @Override
-    public void onPong(WebSocketConnection connection, PongWebSocketFrame frame) throws Throwable {
+    public void onPong(WebSocketConnection connection, PongWebSocketFrame frame) throws Exception {
     }
 }

@@ -33,7 +33,7 @@ public class Chatroom extends BaseWebSocketHandler {
     private final Set<WebSocketConnection> connections = new HashSet<>();
 
     @Override
-    public void onOpen(WebSocketConnection connection) throws Exception {
+    public void onOpen(WebSocketConnection connection) {
         connections.add(connection);
     }
 

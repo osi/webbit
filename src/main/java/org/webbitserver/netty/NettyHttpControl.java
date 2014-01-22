@@ -19,7 +19,6 @@ import org.webbitserver.HttpRequest;
 import org.webbitserver.HttpResponse;
 import org.webbitserver.WebSocketConnection;
 import org.webbitserver.WebSocketHandler;
-import org.webbitserver.WebbitException;
 
 import java.util.Iterator;
 import java.util.concurrent.Executor;
@@ -29,11 +28,9 @@ public class NettyHttpControl implements HttpControl {
     private static final Pattern HTTPS = Pattern.compile("(?s)https://.*");
 
     private final Iterator<HttpHandler> handlerIterator;
-    private final Executor executor;
     private final ChannelHandlerContext ctx;
     private final NettyHttpRequest webbitHttpRequest;
     private final io.netty.handler.codec.http.HttpResponse nettyHttpResponse;
-    private final Thread.UncaughtExceptionHandler exceptionHandler;
     private final Thread.UncaughtExceptionHandler ioExceptionHandler;
     private final int maxWebSocketFrameSize;
 
@@ -44,23 +41,19 @@ public class NettyHttpControl implements HttpControl {
     private NettyEventSourceConnection eventSourceConnection;
 
     public NettyHttpControl(Iterator<HttpHandler> handlerIterator,
-                            Executor executor,
                             ChannelHandlerContext ctx,
                             NettyHttpRequest webbitHttpRequest,
                             NettyHttpResponse webbitHttpResponse,
                             io.netty.handler.codec.http.HttpResponse nettyHttpResponse,
-                            Thread.UncaughtExceptionHandler exceptionHandler,
                             Thread.UncaughtExceptionHandler ioExceptionHandler,
                             int maxWebSocketFrameSize)
     {
         this.handlerIterator = handlerIterator;
-        this.executor = executor;
         this.ctx = ctx;
         this.webbitHttpRequest = webbitHttpRequest;
         this.webbitHttpResponse = webbitHttpResponse;
         this.nettyHttpResponse = nettyHttpResponse;
         this.ioExceptionHandler = ioExceptionHandler;
-        this.exceptionHandler = exceptionHandler;
         this.maxWebSocketFrameSize = maxWebSocketFrameSize;
 
         defaultRequest = webbitHttpRequest;
@@ -112,19 +105,18 @@ public class NettyHttpControl implements HttpControl {
         }
 
         webSocketConnection =
-                new NettyWebSocketConnection(executor,
-                                             webbitHttpRequest,
-                                             ctx,
-                                             "Sec-WebSocket-Version-" + handshaker.version().toHttpHeaderValue());
+                new NettyWebSocketConnection(
+                        webbitHttpRequest,
+                        ctx,
+                        "Sec-WebSocket-Version-" + handshaker.version().toHttpHeaderValue());
 
         ChannelFuture handshakeComplete = handshaker.handshake(channel, webbitHttpRequest.netty());
 
-        WebSocketConnectionHandler webSocketConnectionHandler = new WebSocketConnectionHandler(executor,
-                                                                                               exceptionHandler,
-                                                                                               ioExceptionHandler,
-                                                                                               webSocketConnection,
-                                                                                               webSocketHandler,
-                                                                                               handshaker);
+        WebSocketConnectionHandler webSocketConnectionHandler = new WebSocketConnectionHandler(
+                ioExceptionHandler,
+                webSocketConnection,
+                webSocketHandler,
+                handshaker);
         channel.pipeline().replace("handler", "wshandler", webSocketConnectionHandler);
         channel.pipeline().addBefore("wshandler", "wsaggregator", new WebSocketFrameAggregator(maxWebSocketFrameSize));
 
@@ -132,9 +124,9 @@ public class NettyHttpControl implements HttpControl {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (future.isSuccess()) {
-                    execute(new CatchingRunnable(exceptionHandler) {
+                    execute(new Runnable() {
                         @Override
-                        protected void go() throws Throwable {
+                        public void run() {
                             webSocketHandler.onOpen(webSocketConnection);
                         }
                     });
@@ -165,17 +157,16 @@ public class NettyHttpControl implements HttpControl {
     @Override
     public NettyEventSourceConnection upgradeToEventSourceConnection(EventSourceHandler eventSourceHandler) {
         NettyEventSourceConnection eventSourceConnection = eventSourceConnection();
-        EventSourceConnectionHandler eventSourceConnectionHandler = new EventSourceConnectionHandler(executor,
-                                                                                                     exceptionHandler,
-                                                                                                     ioExceptionHandler,
-                                                                                                     eventSourceConnection,
-                                                                                                     eventSourceHandler);
+        EventSourceConnectionHandler eventSourceConnectionHandler = new EventSourceConnectionHandler(
+                ioExceptionHandler,
+                eventSourceConnection,
+                eventSourceHandler);
         performEventSourceHandshake(eventSourceConnectionHandler);
 
         try {
             eventSourceHandler.onOpen(eventSourceConnection);
         } catch (Exception e) {
-            exceptionHandler.uncaughtException(Thread.currentThread(), new WebbitException(e));
+            ctx.fireExceptionCaught(e);
         }
         return eventSourceConnection;
     }
@@ -183,19 +174,19 @@ public class NettyHttpControl implements HttpControl {
     @Override
     public NettyEventSourceConnection eventSourceConnection() {
         if (eventSourceConnection == null) {
-            eventSourceConnection = new NettyEventSourceConnection(executor, webbitHttpRequest, ctx);
+            eventSourceConnection = new NettyEventSourceConnection(webbitHttpRequest, ctx);
         }
         return eventSourceConnection;
     }
 
     @Override
     public Executor handlerExecutor() {
-        return executor;
+        return ctx.executor();
     }
 
     @Override
     public void execute(Runnable command) {
-        handlerExecutor().execute(command);
+        ExecutorHelper.safeExecute(ctx, command);
     }
 
     private void performEventSourceHandshake(ChannelHandler eventSourceConnectionHandler) {

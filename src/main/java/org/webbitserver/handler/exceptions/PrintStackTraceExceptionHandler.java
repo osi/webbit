@@ -22,6 +22,7 @@ public class PrintStackTraceExceptionHandler implements Thread.UncaughtException
 
     @Override
     public void uncaughtException(Thread t, Throwable exception) {
+        out.println("Uncaught exception on " + t.getName());
         exception.printStackTrace(out);
     }
 }

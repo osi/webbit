@@ -55,7 +55,7 @@ public class Main {
         ExecutorService webThread = newSingleThreadExecutor();
         final Pusher pusher = new Pusher();
 
-        WebServer webServer = createWebServer(webThread, 9876)
+        WebServer webServer = createWebServer(9876)
                 .add("/events", new EventSourceHandler() {
                     @Override
                     public void onOpen(EventSourceConnection connection) throws Exception {
