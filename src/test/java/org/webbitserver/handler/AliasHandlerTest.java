@@ -10,7 +10,7 @@ import static org.webbitserver.testutil.HttpClient.contents;
 import static org.webbitserver.testutil.HttpClient.httpGet;
 
 public class AliasHandlerTest {
-    private WebServer webServer = createWebServer(59504);
+    private final WebServer webServer = createWebServer(59504);
 
     @After
     public void die() throws Exception {

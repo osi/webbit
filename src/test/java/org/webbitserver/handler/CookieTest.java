@@ -81,7 +81,7 @@ public class CookieTest {
         }).start();
         URLConnection urlConnection = httpGet(webServer, "/");
         List<Cookie> cookies = cookies(urlConnection);
-        assertEquals(-1, cookies.get(0).getMaxAge());
+        assertEquals(Long.MIN_VALUE, cookies.get(0).getMaxAge());
     }
 
     @Test
@@ -110,7 +110,7 @@ public class CookieTest {
                     throws Exception
             {
                 String body = "Your cookies:";
-                List<Cookie> cookies = sort(new ArrayList<Cookie>(request.cookies()));
+                List<Cookie> cookies = sort(new ArrayList<>(request.cookies()));
                 for (Cookie cookie : cookies) {
                     body += " " + cookie.getName() + "=" + cookie.getValue();
                 }
@@ -134,16 +134,19 @@ public class CookieTest {
             public void handleHttpRequest(HttpRequest request, HttpResponse response, HttpControl control)
                     throws Exception
             {
-                String body = "Your cookies:";
-                List<Cookie> cookies = sort(new ArrayList<Cookie>(request.cookies()));
+                StringBuilder body = new StringBuilder("Your cookies:");
+                List<Cookie> cookies = sort(new ArrayList<>(request.cookies()));
                 for (Cookie cookie : cookies) {
                     String path = "";
                     if (cookie.getPath() != null) {
                         path = "; path:" + cookie.getPath();
                     }
-                    body +=
-                            " " + cookie.getName() + "=" + cookie.getValue() + "; age:" + cookie.getMaxAge() + "; secure:" + cookie
-                                    .isSecure() + path + "|";
+                    body.append(" ")
+                            .append(cookie.getName())
+                            .append("=")
+                            .append(cookie.getValue())
+                            .append(path)
+                            .append("|");
                 }
                 response.header("Content-Length", body.length())
                         .content(body)
@@ -159,7 +162,7 @@ public class CookieTest {
         String s = new HttpCookie("c", "d").toString();
         urlConnection.addRequestProperty("Cookie", s + "; " + new HttpCookie("e", "f").toString());
         assertEquals(
-                "Your cookies: a=b; age:5000; secure:true; path:/path| c=d; age:-1; secure:false| e=f; age:-1; secure:false|",
+                "Your cookies: a=b; path:/path| c=d| e=f|",
                 contents(urlConnection));
     }
 

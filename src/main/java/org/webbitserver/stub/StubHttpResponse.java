@@ -101,8 +101,8 @@ public class StubHttpResponse implements HttpResponse {
     }
 
     @Override
-    public StubHttpResponse content(String content) {
-        return content(content.getBytes(charset));
+    public StubHttpResponse content(CharSequence content) {
+        return content(content.toString().getBytes(charset));
     }
 
     @Override

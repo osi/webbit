@@ -115,7 +115,7 @@ public class NettyHttpResponse implements org.webbitserver.HttpResponse {
     }
 
     @Override
-    public NettyHttpResponse content(String content) {
+    public NettyHttpResponse content(CharSequence content) {
         return content(ByteBufUtil.encodeString(ctx.alloc(), CharBuffer.wrap(content), charset()));
     }
 

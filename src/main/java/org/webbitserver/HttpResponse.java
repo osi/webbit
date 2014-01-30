@@ -25,7 +25,7 @@ public interface HttpResponse {
     /**
      * Turns the response into a chunked response
      * <p/>
-     * after this method is called, {@link #write(String)} should be used to send chunks
+     * after this method is called, {@link #write(java.lang.CharSequence)} should be used to send chunks
      * <p/>
      * TODO support just writing something Chunked as the content
      */
@@ -86,20 +86,21 @@ public interface HttpResponse {
      *
      * @see #charset(Charset)
      * @see #content(byte[])
+     * @param content
      */
-    HttpResponse content(String content);
+    HttpResponse content(CharSequence content);
 
     /**
      * Write binary based content back to the client.
      *
-     * @see #content(String)
+     * @see #content(CharSequence)
      */
     HttpResponse content(byte[] content);
 
     /**
      * Write binary based content back to the client.
      *
-     * @see #content(String)
+     * @see #content(CharSequence)
      */
     HttpResponse content(ByteBuffer buffer);
 

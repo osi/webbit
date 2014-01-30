@@ -80,7 +80,7 @@ public class HttpResponseWrapper implements HttpResponse {
     }
 
     @Override
-    public HttpResponseWrapper content(String content) {
+    public HttpResponseWrapper content(CharSequence content) {
         response.content(content);
         return this;
     }

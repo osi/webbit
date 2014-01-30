@@ -11,6 +11,7 @@ import org.webbitserver.helpers.QueryParameters;
 
 import java.net.SocketAddress;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,7 +66,12 @@ public class NettyHttpRequest implements HttpRequest {
 
     @Override
     public Set<Cookie> cookies() {
-        return CookieDecoder.decode(header(HttpHeaders.Names.COOKIE.toString()));
+        List<String> headers = headers(HttpHeaders.Names.COOKIE.toString());
+        Set<Cookie> cookies = new HashSet<>();
+        for (String header : headers) {
+            cookies.addAll(CookieDecoder.decode(header));
+        }
+        return cookies;
     }
 
     @Override
