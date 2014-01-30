@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Set;
 
 public class QueryParameters {
-    private static final List<String> EMPTY = Collections.emptyList();
     private final Map<String, List<String>> params;
 
     public QueryParameters(String uri) {
@@ -21,7 +20,7 @@ public class QueryParameters {
     }
 
     public List<String> all(String key) {
-        return params.containsKey(key) ? params.get(key) : EMPTY;
+        return params.containsKey(key) ? params.get(key) : Collections.<String>emptyList();
     }
 
     public Set<String> keys() {

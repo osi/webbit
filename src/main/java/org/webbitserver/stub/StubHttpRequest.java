@@ -8,7 +8,6 @@ import org.webbitserver.helpers.QueryParameters;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.net.URI;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,17 +83,17 @@ public class StubHttpRequest extends StubDataHolder implements HttpRequest {
 
     @Override
     public String queryParam(String key) {
-        return new QueryParameters(URI.create(uri()).getQuery()).first(key);
+        return new QueryParameters(uri()).first(key);
     }
 
     @Override
     public List<String> queryParams(String key) {
-        return new QueryParameters(URI.create(uri()).getQuery()).all(key);
+        return new QueryParameters(uri()).all(key);
     }
 
     @Override
     public Set<String> queryParamKeys() {
-        return new QueryParameters(URI.create(uri()).getQuery()).keys();
+        return new QueryParameters(uri()).keys();
     }
 
     @Override
