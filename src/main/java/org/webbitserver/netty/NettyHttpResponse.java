@@ -135,6 +135,7 @@ public class NettyHttpResponse implements org.webbitserver.HttpResponse {
 //            throw new UnsupportedOperationException();
 //        }
         responseBuffer.addComponent(content);
+        responseBuffer.writerIndex(responseBuffer.writerIndex() + content.readableBytes());
         return this;
     }
 
