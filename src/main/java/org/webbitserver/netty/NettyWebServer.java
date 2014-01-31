@@ -172,6 +172,7 @@ public class NettyWebServer implements WebServer {
         try {
             if (null != channel) {
                 channel.close().sync();
+                channel = null;
             }
         } finally {
             List<Future<?>> futures = new ArrayList<>(3);
