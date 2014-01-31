@@ -10,8 +10,8 @@ import java.util.Set;
 public class QueryParameters {
     private final Map<String, List<String>> params;
 
-    public QueryParameters(String uri) {
-        params = new QueryStringDecoder(uri).parameters();
+    public QueryParameters(String uri, boolean hasPath) {
+        params = new QueryStringDecoder(uri, hasPath).parameters();
     }
 
     public String first(String key) {

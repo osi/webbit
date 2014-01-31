@@ -116,14 +116,14 @@ public class NettyHttpRequest implements HttpRequest {
 
     private QueryParameters parsedQueryParams() {
         if (queryParameters == null) {
-            queryParameters = new QueryParameters(uri());
+            queryParameters = new QueryParameters(uri(), true);
         }
         return queryParameters;
     }
 
     private QueryParameters parsedPostParams() {
         if (postParameters == null) {
-            postParameters = new QueryParameters(body());
+            postParameters = new QueryParameters(body(), false);
         }
         return postParameters;
     }

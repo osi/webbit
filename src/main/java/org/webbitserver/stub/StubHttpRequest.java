@@ -83,32 +83,32 @@ public class StubHttpRequest extends StubDataHolder implements HttpRequest {
 
     @Override
     public String queryParam(String key) {
-        return new QueryParameters(uri()).first(key);
+        return new QueryParameters(uri(), true).first(key);
     }
 
     @Override
     public List<String> queryParams(String key) {
-        return new QueryParameters(uri()).all(key);
+        return new QueryParameters(uri(), true).all(key);
     }
 
     @Override
     public Set<String> queryParamKeys() {
-        return new QueryParameters(uri()).keys();
+        return new QueryParameters(uri(), true).keys();
     }
 
     @Override
     public String postParam(String key) {
-        return new QueryParameters(body()).first(key);
+        return new QueryParameters(body(), false).first(key);
     }
 
     @Override
     public List<String> postParams(String key) {
-        return new QueryParameters(body()).all(key);
+        return new QueryParameters(body(), false).all(key);
     }
 
     @Override
     public Set<String> postParamKeys() {
-        return new QueryParameters(body()).keys();
+        return new QueryParameters(body(), false).keys();
     }
 
     @Override

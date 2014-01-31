@@ -2,15 +2,18 @@ package org.webbitserver.netty;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.util.CharsetUtil;
 import org.webbitserver.HttpControl;
 import org.webbitserver.HttpHandler;
@@ -22,7 +25,6 @@ import java.util.List;
 import static io.netty.handler.codec.http.HttpHeaders.isKeepAlive;
 import static io.netty.handler.codec.http.HttpHeaders.setContentLength;
 import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
-import static io.netty.handler.codec.http.HttpResponseStatus.INTERNAL_SERVER_ERROR;
 import static io.netty.handler.codec.http.HttpResponseStatus.OK;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
@@ -100,16 +102,25 @@ public class NettyHttpChannelHandler extends SimpleChannelInboundHandler<FullHtt
         }
 
         Thread thread = Thread.currentThread();
-        ioExceptionHandler.uncaughtException(thread, WebbitException.fromException(cause, ctx.channel()));
+        Channel channel = ctx.channel();
+        ioExceptionHandler.uncaughtException(thread, WebbitException.fromException(cause, channel));
+
+        HttpResponseStatus status;
+        ByteBuf content;
+
+        if (cause instanceof TooLongFrameException) {
+            status = HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE;
+            content = Unpooled.copiedBuffer(cause.getMessage(), CharsetUtil.US_ASCII);
+        } else {
+            status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
+            content = Unpooled.copiedBuffer(NettyHttpResponse.getStackTrace(cause), CharsetUtil.US_ASCII);
+        }
 
         DefaultFullHttpResponse response =
-                new DefaultFullHttpResponse(HTTP_1_1,
-                                            INTERNAL_SERVER_ERROR,
-                                            Unpooled.copiedBuffer(NettyHttpResponse.getStackTrace(cause),
-                                                                  CharsetUtil.US_ASCII));
+                new DefaultFullHttpResponse(HTTP_1_1, status, content);
         response.headers().add(HttpHeaders.Names.CONTENT_TYPE, "text/plain");
 
-        ctx.channel().write(response).addListener(ChannelFutureListener.CLOSE);
+        channel.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
     }
 
 }
