@@ -25,8 +25,7 @@ public abstract class AbstractResourceHandler implements HttpHandler {
         mimeTypes.put("htm", "text/html");
         mimeTypes.put("html", "text/html");
         mimeTypes.put("xml", "text/xml");
-        mimeTypes.put("js",
-                      "text/javascript"); // Technically it should be application/javascript (RFC 4329), but IE8 struggles with that
+        mimeTypes.put("js", "application/javascript");
         mimeTypes.put("xhtml", "application/xhtml+xml");
         mimeTypes.put("json", "application/json");
         mimeTypes.put("pdf", "application/pdf");
