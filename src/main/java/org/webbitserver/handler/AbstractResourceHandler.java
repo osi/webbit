@@ -25,7 +25,8 @@ public abstract class AbstractResourceHandler implements HttpHandler {
         mimeTypes.put("htm", "text/html");
         mimeTypes.put("html", "text/html");
         mimeTypes.put("xml", "text/xml");
-        mimeTypes.put("js", "text/javascript"); // Technically it should be application/javascript (RFC 4329), but IE8 struggles with that
+        mimeTypes.put("js",
+                      "text/javascript"); // Technically it should be application/javascript (RFC 4329), but IE8 struggles with that
         mimeTypes.put("xhtml", "application/xhtml+xml");
         mimeTypes.put("json", "application/json");
         mimeTypes.put("pdf", "application/pdf");
@@ -79,14 +80,18 @@ public abstract class AbstractResourceHandler implements HttpHandler {
         return enableDirectoryListing(isDirectoryListingEnabled, new DefaultDirectoryListingFormatter());
     }
 
-    public AbstractResourceHandler enableDirectoryListing(boolean isDirectoryListingEnabled, DirectoryListingFormatter directoryListingFormatter) {
+    public AbstractResourceHandler enableDirectoryListing(boolean isDirectoryListingEnabled,
+                                                          DirectoryListingFormatter directoryListingFormatter)
+    {
         this.isDirectoryListingEnabled = isDirectoryListingEnabled;
         this.directoryListingFormatter = directoryListingFormatter;
         return this;
     }
 
     @Override
-    public void handleHttpRequest(final HttpRequest request, final HttpResponse response, final HttpControl control) throws Exception {
+    public void handleHttpRequest(final HttpRequest request, final HttpResponse response, final HttpControl control)
+            throws Exception
+    {
         // Switch from web thead to IO thread, so we don't block web server when we access the filesystem.
         ioThread.execute(createIOWorker(request, response, control));
     }
@@ -96,7 +101,8 @@ public abstract class AbstractResourceHandler implements HttpHandler {
                          HttpControl control,
                          final HttpResponse response,
                          final HttpRequest request,
-                         final String path) {
+                         final String path)
+    {
         // Switch back from IO thread to web thread.
         control.execute(new Runnable() {
             @Override
@@ -104,7 +110,8 @@ public abstract class AbstractResourceHandler implements HttpHandler {
                 // TODO: Check bytes read match expected encoding of mime-type
                 response.header("Content-Type", mimeType);
 
-                byte[] dynamicContents = templateEngine.process(staticContents, path, request.data(TemplateEngine.TEMPLATE_CONTEXT));
+                byte[] dynamicContents =
+                        templateEngine.process(staticContents, path, request.data(TemplateEngine.TEMPLATE_CONTEXT));
                 ByteBuffer contents = ByteBuffer.wrap(dynamicContents);
 
                 if (maybeServeRange(request, contents, response)) {
@@ -138,23 +145,23 @@ public abstract class AbstractResourceHandler implements HttpHandler {
             int end = Integer.parseInt(endString);
             if (start <= end) {
                 serveRange(start,
-                        Math.min(contents.remaining() - 1, end),
-                        contents,
-                        response);
+                           Math.min(contents.remaining() - 1, end),
+                           contents,
+                           response);
                 return true;
             }
         } else if (null != startString) {
             serveRange(Integer.parseInt(startString),
-                    contents.remaining() - 1,
-                    contents,
-                    response);
+                       contents.remaining() - 1,
+                       contents,
+                       response);
             return true;
         } else if (null != endString) {
             int end = Integer.parseInt(endString);
             serveRange(contents.remaining() - end,
-                    contents.remaining() - 1,
-                    contents,
-                    response);
+                       contents.remaining() - 1,
+                       contents,
+                       response);
             return true;
         }
 
@@ -179,8 +186,8 @@ public abstract class AbstractResourceHandler implements HttpHandler {
     }
 
     protected abstract IOWorker createIOWorker(HttpRequest request,
-                                                                 HttpResponse response,
-                                                                 HttpControl control);
+                                               HttpResponse response,
+                                               HttpControl control);
 
     /**
      * All IO is performed by this worker on a separate thread, so we never block the HttpHandler.
