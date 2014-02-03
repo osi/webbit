@@ -57,7 +57,7 @@ public abstract class AbstractResourceHandler implements HttpHandler {
     public AbstractResourceHandler(Executor ioThread, TemplateEngine templateEngine) {
         this.ioThread = ioThread;
         this.templateEngine = templateEngine;
-        this.mimeTypes = new HashMap<String, String>(DEFAULT_MIME_TYPES);
+        this.mimeTypes = new HashMap<>(DEFAULT_MIME_TYPES);
         this.welcomeFileName = DEFAULT_WELCOME_FILE_NAME;
     }
 
@@ -88,8 +88,8 @@ public abstract class AbstractResourceHandler implements HttpHandler {
     }
 
     @Override
-    public void handleHttpRequest(final HttpRequest request, final HttpResponse response, final HttpControl control)
-            throws Exception
+    public void handleHttpRequest(HttpRequest request, HttpResponse response, HttpControl control)
+    throws Exception
     {
         // Switch from web thead to IO thread, so we don't block web server when we access the filesystem.
         ioThread.execute(createIOWorker(request, response, control));
@@ -232,7 +232,7 @@ public abstract class AbstractResourceHandler implements HttpHandler {
 
             // TODO: Cache
             try {
-                byte[] content = null;
+                byte[] content;
                 if (!exists()) {
                     notFound();
                     return;
