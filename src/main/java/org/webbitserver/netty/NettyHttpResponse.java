@@ -9,6 +9,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.Cookie;
+import io.netty.handler.codec.http.DefaultHttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -42,7 +43,7 @@ public class NettyHttpResponse implements org.webbitserver.HttpResponse {
                              Thread.UncaughtExceptionHandler exceptionHandler)
     {
         this.ctx = ctx;
-        this.request = request;
+        this.request = request.retain();
         this.response = response;
         this.isKeepAlive = isKeepAlive;
         this.exceptionHandler = exceptionHandler;
@@ -187,7 +188,7 @@ public class NettyHttpResponse implements org.webbitserver.HttpResponse {
 //                ctx.getChannel()
 //                        .write(new DefaultHttpChunk(ChannelBuffers.EMPTY_BUFFER));
 //            } else {
-            ctx.write(responseBuffer);
+            ctx.write(new DefaultHttpContent(responseBuffer));
 //            }
 
             ChannelFuture lastContentFuture = ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);

@@ -42,8 +42,6 @@ public class NettyHttpChannelHandler extends SimpleChannelInboundHandler<FullHtt
                                    Thread.UncaughtExceptionHandler ioExceptionHandler,
                                    int maxWebSocketFrameSize)
     {
-        super(false); // no auto-reelase
-
         this.httpHandlers = httpHandlers;
         this.timestamp = timestamp;
         this.exceptionHandler = exceptionHandler;
@@ -111,6 +109,9 @@ public class NettyHttpChannelHandler extends SimpleChannelInboundHandler<FullHtt
         if (cause instanceof TooLongFrameException) {
             status = HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE;
             content = Unpooled.copiedBuffer(cause.getMessage(), CharsetUtil.US_ASCII);
+            // We cannot have the compressor in the outbound pipeline in this case because
+            // it never saw the incoming request, and thus never had a chance to record the Accept-Encoding header
+            ctx.pipeline().remove("compressor");
         } else {
             status = HttpResponseStatus.INTERNAL_SERVER_ERROR;
             content = Unpooled.copiedBuffer(NettyHttpResponse.getStackTrace(cause), CharsetUtil.US_ASCII);

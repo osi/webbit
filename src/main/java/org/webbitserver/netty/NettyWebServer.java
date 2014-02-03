@@ -9,6 +9,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.http.HttpContentDecompressor;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpServerCodec;
@@ -28,7 +29,6 @@ import org.webbitserver.handler.HttpToWebSocketHandler;
 import org.webbitserver.handler.PathMatchHandler;
 import org.webbitserver.handler.ServerHeaderHandler;
 import org.webbitserver.handler.exceptions.PrintStackTraceExceptionHandler;
-import org.webbitserver.handler.exceptions.SilentExceptionHandler;
 import org.webbitserver.helpers.SslFactory;
 
 import javax.net.ssl.SSLContext;
@@ -44,6 +44,11 @@ import java.util.List;
 import java.util.concurrent.Executor;
 
 public class NettyWebServer implements WebServer {
+
+    static {
+        System.setProperty("io.netty.noJdkZlibDecoder", "false");
+    }
+
     private final SocketAddress socketAddress;
     private final URI publicUri;
     private final List<HttpHandler> handlers = new ArrayList<>();
@@ -77,7 +82,8 @@ public class NettyWebServer implements WebServer {
 
         // Default behavior is to silently discard any exceptions caused
         // when reading/writing to the client. The Internet is flaky - it happens.
-        connectionExceptionHandler(new SilentExceptionHandler());
+        // TODO these two exception handlers are mixed together a lot
+        connectionExceptionHandler(new PrintStackTraceExceptionHandler());
 
         setupDefaultHandlers();
     }
@@ -268,17 +274,14 @@ public class NettyWebServer implements WebServer {
                 engine.setUseClientMode(false);
                 pipeline.addLast("ssl", new SslHandler(engine));
             }
+            // TODO for stale, look at the netty idle stuff
 //  TODO          pipeline.addLast("connectiontracker", connectionTrackingHandler);
 
             pipeline.addLast("codec-http", new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize));
+            pipeline.addLast("decompressor", new HttpContentDecompressor());
             pipeline.addLast("aggregator", new HttpObjectAggregator(maxContentLength));
-            // cannot use compression and chunked writing by default together
-            // http://stackoverflow.com/questions/20136334/netty-httpstaticfileserver-example-not-working-with-httpcontentcompressor
-//            pipeline.addLast("decompressor", new HttpContentDecompressor());
-//            pipeline.addLast("compressor", new HttpContentCompressor());
+            pipeline.addLast("compressor", new HttpChunkContentCompressor());
             pipeline.addLast("chunkedWriter", new ChunkedWriteHandler());
-
-            // TODO for stale, look at the netty idle stuff
 
             pipeline.addLast(httpHandlerGroup,
                              "handler",

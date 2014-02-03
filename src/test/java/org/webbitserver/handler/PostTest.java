@@ -62,7 +62,7 @@ public class PostTest {
             public void handleHttpRequest(HttpRequest request, HttpResponse response, HttpControl control)
                     throws Exception
             {
-                ArrayList<String> keysList = new ArrayList<String>(request.postParamKeys());
+                ArrayList<String> keysList = new ArrayList<>(request.postParamKeys());
                 Collections.sort(keysList);
 
                 response.content("keys=" + keysList.toString()).end();
@@ -82,7 +82,7 @@ public class PostTest {
                 response.content(Arrays.toString(request.bodyAsBytes())).end();
             }
         }).start();
-        byte[] byteArray = new byte[]{87, 79, 87, 46, 46, 46};
+        byte[] byteArray = {87, 79, 87, 46, 46, 46};
         String result = contents(httpPost(webServer, "/", new String(byteArray)));
         assertEquals(Arrays.toString(byteArray), result);
     }
