@@ -38,6 +38,9 @@ public class NamingThreadFactory implements ThreadFactory {
      * Override this method to customize thread name.
      */
     protected String threadName() {
-        return String.format("%s-%d-%d-thread", prefix, factoryCount.intValue(), threadCount.intValue());
+        return String.format("%s-%d-%d-thread",
+                             prefix,
+                             Integer.valueOf(factoryCount.intValue()),
+                             Integer.valueOf(threadCount.intValue()));
     }
 }

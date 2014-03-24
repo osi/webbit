@@ -4,10 +4,12 @@ import org.webbitserver.HttpControl;
 import org.webbitserver.HttpRequest;
 import org.webbitserver.HttpResponse;
 import org.webbitserver.helpers.ClassloaderResourceHelper;
+import org.webbitserver.helpers.NamingThreadFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.concurrent.Executor;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -41,7 +43,7 @@ public class StaticFileHandler extends AbstractResourceHandler {
     }
 
     public StaticFileHandler(File dir, TemplateEngine templateEngine) {
-        this(dir, newFixedThreadPool(4), templateEngine);
+        this(dir, newFixedThreadPool(4, new NamingThreadFactory("StaticFileHandler")), templateEngine);
     }
 
     public StaticFileHandler(File dir) {
@@ -94,7 +96,7 @@ public class StaticFileHandler extends AbstractResourceHandler {
         private final long maxAge;
 
         private String mimeType(String uri) {
-            String ext = uri.lastIndexOf(".") != -1 ? uri.substring(uri.lastIndexOf(".")) : null;
+            String ext = uri.lastIndexOf('.') != -1 ? uri.substring(uri.lastIndexOf('.')) : null;
             String currentMimeType = mimeTypes.get(ext);
             if (currentMimeType == null) currentMimeType = "text/plain";
             return currentMimeType;
@@ -102,14 +104,14 @@ public class StaticFileHandler extends AbstractResourceHandler {
         //based on: http://m2tec.be/blog/2010/02/03/java-md5-hex-0093
         private  String MD5(String md5) {
             try {
-                java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+                MessageDigest md = MessageDigest.getInstance("MD5");
                 byte[] array = md.digest(md5.getBytes("UTF-8"));
-                StringBuffer sb = new StringBuffer();
+                StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < array.length; ++i) {
                     sb.append(Integer.toHexString((array[i] & 0xFF) | 0x100).substring(1, 3));
                 }
                 return sb.toString();
-            } catch (Exception e) {
+            } catch (Exception ignored) {
                 return null;
             }
         }
@@ -125,7 +127,7 @@ public class StaticFileHandler extends AbstractResourceHandler {
             httpDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
             try {
                 return httpDateFormat.parse(date);
-            } catch (Exception ex) {
+            } catch (Exception ignored) {
                 return new Date();
             }
         }

@@ -4,6 +4,7 @@ import org.webbitserver.HttpControl;
 import org.webbitserver.HttpRequest;
 import org.webbitserver.HttpResponse;
 import org.webbitserver.helpers.ClassloaderResourceHelper;
+import org.webbitserver.helpers.NamingThreadFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,11 +38,11 @@ public class EmbeddedResourceHandler extends AbstractResourceHandler {
     }
 
     public EmbeddedResourceHandler(String root, Class<?> clazz, TemplateEngine templateEngine) {
-        this(root, newFixedThreadPool(4), clazz, templateEngine);
+        this(root, newFixedThreadPool(4, new NamingThreadFactory("EmbeddedResourceHandler")), clazz, templateEngine);
     }
 
     public EmbeddedResourceHandler(String root, Class<?> clazz) {
-        this(root, newFixedThreadPool(4), clazz);
+        this(root, newFixedThreadPool(4, new NamingThreadFactory("EmbeddedResourceHandler")), clazz);
     }
 
     public EmbeddedResourceHandler(String root, TemplateEngine templateEngine) {
